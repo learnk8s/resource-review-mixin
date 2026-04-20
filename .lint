@@ -1,0 +1,9 @@
+exclusions:
+  template-job-rule:
+    reason: The dashboard selects pre-aggregated resource-review recording rules, not scrape jobs.
+  template-instance-rule:
+    reason: Kubernetes workload identity is expressed by cluster, namespace, workload, revision, Pod UID, and container.
+  target-job-rule:
+    reason: Recording rules deliberately remove scrape-target labels from dashboard queries.
+  target-instance-rule:
+    reason: Node and Pod identity replace scrape-instance identity in the review model.

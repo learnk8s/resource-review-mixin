@@ -1,0 +1,41 @@
+name: Bug report
+description: Report incorrect identity, PromQL, generated manifests, or dashboard behavior
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: This form is public. If the problem may expose private data or allow unwanted access, do not use this form. Follow the [security policy](https://github.com/learnk8s/resource-review-mixin/security/policy) to email the maintainers privately.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Grafana, Prometheus, kube-state-metrics, kube-prometheus-stack, and Kubernetes versions; single- or multi-cluster mode.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Minimal evidence
+      description: Sanitized labels, query result, panel, and reproduction steps. Include Pod UID/revision context when relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation output
+      description: Relevant output from `make validate` or browser/Grafana errors.

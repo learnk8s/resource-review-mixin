@@ -1,0 +1,79 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.26.x'
+          cache: false
+
+      - name: Install system tools
+        run: sudo apt-get update && sudo apt-get install --yes jq shellcheck
+
+      - name: Install validation tools
+        env:
+          GOBIN: /usr/local/bin
+        run: |
+          go install github.com/google/go-jsonnet/cmd/jsonnet@v0.22.0
+          go install github.com/google/go-jsonnet/cmd/jsonnetfmt@v0.22.0
+          go install github.com/google/go-jsonnet/cmd/jsonnet-lint@v0.22.0
+          go install github.com/cloudflare/pint/cmd/pint@v0.87.0
+          go install github.com/yannh/kubeconform/cmd/kubeconform@v0.7.0
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+
+      - name: Install promtool
+        env:
+          PROMETHEUS_VERSION: 3.14.0
+          PROMETHEUS_SHA256: f665c6da19eb7ba399c915d30c7d9793c9b417bf8a749b504bc470678631478d
+        run: |
+          archive="prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+          curl --fail --location --silent --show-error \
+            "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/${archive}" \
+            --output "/tmp/${archive}"
+          echo "${PROMETHEUS_SHA256}  /tmp/${archive}" | sha256sum --check
+          tar --extract --gzip --file "/tmp/${archive}" --directory /tmp
+          sudo install "/tmp/prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool" /usr/local/bin/promtool
+
+      - name: Install dashboard linter
+        env:
+          DASHBOARD_LINTER_VERSION: v0.1.0
+        run: |
+          archive="dashboard-linter_${DASHBOARD_LINTER_VERSION#v}_linux_amd64.tar.gz"
+          base="https://github.com/grafana/dashboard-linter/releases/download/${DASHBOARD_LINTER_VERSION}"
+          curl --fail --location --silent --show-error "${base}/${archive}" --output "/tmp/${archive}"
+          curl --fail --location --silent --show-error "${base}/checksums.txt" --output /tmp/dashboard-linter-checksums.txt
+          grep "  ${archive}$" /tmp/dashboard-linter-checksums.txt | sed 's#  #  /tmp/#' | sha256sum --check
+          tar --extract --gzip --file "/tmp/${archive}" --directory /tmp dashboard-linter
+          sudo install /tmp/dashboard-linter /usr/local/bin/dashboard-linter
+
+      - name: Verify vendored Grafonnet dependency
+        run: test -f vendor/github.com/grafana/grafonnet/gen/grafonnet-latest/main.libsonnet
+
+      - name: Check generated files are current
+        run: make check-generated
+
+      - name: Validate sources and generated artifacts
+        run: make validate
+
+      - name: Ensure validation did not rewrite committed artifacts
+        run: git diff --exit-code -- generated manifests
+
+      - name: Lint shell scripts
+        run: shellcheck tests/*.sh scripts/*.sh
+
+      - name: Lint GitHub Actions workflows
+        run: actionlint
