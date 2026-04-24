@@ -1,14 +1,14 @@
 # Kubernetes Resource Review Mixin
 
-This repository provides a [Grafana dashboard](https://grafana.com/docs/grafana/latest/dashboards/), a page that shows collected measurements, and [Prometheus recording rules](https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/), saved queries that Prometheus runs every minute. They follow the review process from the [Kubernetes Rightsizing book](https://learnkube.com/kubernetes-rightsizing).
+This repository provides a [Grafana dashboard](https://grafana.com/docs/grafana/latest/dashboards/) and [Prometheus recording rules](https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/). They follow the review process from the [Kubernetes Rightsizing book](https://learnkube.com/kubernetes-rightsizing).
 
-The dashboard compares each [Pod](https://kubernetes.io/docs/concepts/workloads/pods/), the smallest Kubernetes unit that runs one or more [containers](https://kubernetes.io/docs/concepts/containers/), which package an application with the files it needs. It shows CPU and memory use, CPU slowdowns, restarts, out-of-memory events, and Kubernetes [resource requests and limits](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/), which reserve CPU or memory for a container and cap how much it may use. The dashboard shows what happened without choosing new values for you.
+The dashboard compares each [Pod](https://kubernetes.io/docs/concepts/workloads/pods/). It shows CPU and memory use, CPU slowdowns, restarts, out-of-memory events, and Kubernetes [resource requests and limits](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/). The dashboard shows what happened without choosing new values for you.
 
 [Metric definitions and limitations](docs/metrics.md) explains what each value means and what it cannot tell you.
 
 ## Try it locally
 
-`make dev` needs [Docker](https://docs.docker.com/get-started/docker-overview/), which runs containers; [kind](https://kind.sigs.k8s.io/), which creates a local Kubernetes cluster from those containers; [Helm](https://helm.sh/docs/), which installs applications in the cluster; [kubectl](https://kubernetes.io/docs/reference/kubectl/), which sends commands to Kubernetes; [curl](https://curl.se/docs/), which downloads files; and [GNU Make](https://www.gnu.org/software/make/manual/make.html), which runs the commands defined by this repository.
+`make dev` needs [Docker](https://docs.docker.com/get-started/docker-overview/), [kind](https://kind.sigs.k8s.io/), [Helm](https://helm.sh/docs/), [kubectl](https://kubernetes.io/docs/reference/kubectl/), [curl](https://curl.se/docs/), and [GNU Make](https://www.gnu.org/software/make/manual/make.html).
 
 ```bash
 make dev
@@ -24,7 +24,7 @@ make dev-down
 
 ## Install it in a cluster
 
-The project is tested with [`kube-prometheus-stack`](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack), a Helm package that installs Prometheus, Grafana, and Kubernetes measurement collectors. Prometheus must receive Kubernetes object details from [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) and container CPU and memory measurements from [cAdvisor](https://github.com/google/cadvisor). Check the tested versions and required measurements in [Compatibility and required metrics](docs/compatibility.md).
+The project is tested with [`kube-prometheus-stack`](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack). Prometheus must receive Kubernetes object details from [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) and container CPU and memory measurements from [cAdvisor](https://github.com/google/cadvisor). Check the tested versions and required measurements in [Compatibility and required metrics](docs/compatibility.md).
 
 Review [config.libsonnet](config.libsonnet), then create and check the files:
 
@@ -33,7 +33,7 @@ make validate
 make check-generated
 ```
 
-`make validate` creates a [PrometheusRule](https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.PrometheusRule), which tells Prometheus which saved queries to run, and a [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/), which stores the dashboard for Grafana. Before saving them in the cluster, ask the [Kubernetes API server](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/), the part of Kubernetes that checks and stores cluster objects, to check them:
+`make validate` creates a [PrometheusRule](https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.PrometheusRule) and a [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/). Before saving them in the cluster, ask the [Kubernetes API server](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/) to check them:
 
 ```bash
 kubectl apply --server-side --dry-run=server -f manifests/prometheus-rule.yaml
@@ -84,7 +84,7 @@ The same file contains the optional warning colors, book link, and links to the 
 
 ## How measurements stay with the right Pod
 
-Kubernetes can reuse a Pod name after deleting the original Pod. Before the dashboard reads the history, the recording rules add the [Pod UID](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids), the unique ID Kubernetes gives one Pod, along with its workload, revision, node, container, image, and exact image ID. A revision groups the Pods created by one [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) update or one [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/) run. These details stop an old measurement from moving to a new Pod with the same name.
+Kubernetes can reuse a Pod name after deleting the original Pod. Before the dashboard reads the history, the recording rules add the [Pod UID](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids) along with its workload, revision, node, container, image, and exact image ID. A revision groups the Pods created by one [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) update or one [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/) run. These details stop an old measurement from moving to a new Pod with the same name.
 
 The rules also keep missing, zero, and unconfigured values separate. A missing value means Prometheus received nothing, zero is a measured value, and unconfigured means the Kubernetes object did not set a request or limit. [How the mixin keeps each sample with the right Pod](docs/architecture.md) explains the queries and how each Pod is connected to the Kubernetes object that created it.
 
