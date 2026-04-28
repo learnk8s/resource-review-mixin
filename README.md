@@ -11,8 +11,29 @@ The dashboard compares each [Pod](https://kubernetes.io/docs/concepts/workloads/
 `make dev` needs [Docker](https://docs.docker.com/get-started/docker-overview/), [kind](https://kind.sigs.k8s.io/), [Helm](https://helm.sh/docs/), [kubectl](https://kubernetes.io/docs/reference/kubectl/), [curl](https://curl.se/docs/), and [GNU Make](https://www.gnu.org/software/make/manual/make.html).
 
 ```bash
+cd resource-review-mixin
 make dev
-```
+
+🚀 Creating kind cluster: resource-review-mixin
+📦 Installing kube-prometheus-stack 91.4.0
+📊 Installing the mixin and sample workload
+   ↳ prometheusrule.monitoring.coreos.com/resource-review-mixin created
+   ↳ configmap/resource-review-dashboard created
+   ↳ namespace/resource-review-test created
+   ↳ deployment.apps/review-sample created
+   ↳ deployment.apps/failure-sample created
+   ↳ deployment.apps/unconfigured-sample created
+   ↳ Waiting for deployment "review-sample" rollout to finish: 0 of 2 updated replicas are available...
+   ↳ Waiting for deployment "review-sample" rollout to finish: 1 of 2 updated replicas are available...
+   ↳ deployment "review-sample" successfully rolled out
+
+✅ Development environment is ready.
+   Grafana:    http://127.0.0.1:3000/d/learnk8s-resource-review/kubernetes-resource-review
+   Prometheus: http://127.0.0.1:9090
+   Cluster:    resource-review-mixin (kind-resource-review-mixin)
+
+ℹ️  Data will appear after Prometheus has collected the first samples.
+🧹 Remove everything with: make dev-down
 
 The command creates a dedicated cluster, installs Prometheus and Grafana, adds the dashboard and rules, starts a sample workload, and prints links to Grafana and Prometheus. Open **Kubernetes Resource Review** in the **Kubernetes** folder.
 
@@ -24,23 +45,47 @@ make dev-down
 
 ## Install it in a cluster
 
-The project is tested with [`kube-prometheus-stack`](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack). Prometheus must receive Kubernetes object details from [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) and container CPU and memory measurements from [cAdvisor](https://github.com/google/cadvisor). Check the tested versions and required measurements in [Compatibility and required metrics](docs/compatibility.md).
+`make dev` installs [`kube-prometheus-stack`](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack), including the required Prometheus Operator `PrometheusRule` CRD, in the local cluster. Before installing this project in another cluster, make sure that cluster already has the same CRD. Prometheus must receive Kubernetes object details from [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) and container CPU and memory measurements from [cAdvisor](https://github.com/google/cadvisor). Check the tested versions and required measurements in [Compatibility and required metrics](docs/compatibility.md).
 
 Review [config.libsonnet](config.libsonnet), then create and check the files:
 
 ```bash
 make validate
+
+🔎 Validating source and generated files
+   ↳ Generating the dashboard, rules, and Kubernetes files
+   ↳ Checking Jsonnet formatting
+   ↳ Checking Jsonnet source
+   ↳ Checking configuration variants
+   ↳ Checking Prometheus rules
+   ↳ Checking the dashboard JSON, queries, and panels
+   ↳ Checking Kubernetes files
+
+✅ Validation passed.
+```
+
+`make validate` recreates the dashboard, Prometheus rules, and Kubernetes files, then checks their formatting, queries, tests, and Kubernetes fields. After it passes, confirm that the committed files match the current Jsonnet source:
+
+```bash
 make check-generated
+
+🔄 Checking committed generated files
+✅ Committed generated files match the source
 ```
 
 `make validate` creates a [PrometheusRule](https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.PrometheusRule) and a [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/). Before saving them in the cluster, ask the [Kubernetes API server](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/) to check them:
 
 ```bash
-kubectl apply --server-side --dry-run=server -f manifests/prometheus-rule.yaml
-kubectl apply --server-side --dry-run=server -f manifests/dashboard-configmap.yaml
+make cluster-check
+
+🔎 Checking Kubernetes files with the API server
+   ↳ PrometheusRule passed
+   ↳ Dashboard ConfigMap passed
+
+✅ Kubernetes API server check passed.
 ```
 
-The `--dry-run=server` option checks the files without saving them. If both commands pass, install the rules first and the dashboard second:
+The command checks the files without saving them. If both files pass, install the rules first and the dashboard second:
 
 ```bash
 kubectl apply -f manifests/prometheus-rule.yaml
@@ -96,7 +141,9 @@ make check-generated
 make integration-test
 ```
 
-The first command creates the files and checks their format, queries, and Kubernetes fields. The second confirms that the committed files match the source. The third creates a temporary kind cluster and checks the rules and dashboard with measurements from running containers.
+The first command creates the files and checks their format, queries, and Kubernetes fields. The second confirms that the committed files match the source.
+
+`make integration-test` creates its own temporary kind cluster, installs `kube-prometheus-stack` and a sample workload, checks the Prometheus rules and Grafana dashboard with data from the running containers, and removes the cluster when the test finishes.
 
 [Contributing](CONTRIBUTING.md) explains which commands each change needs. [Security](SECURITY.md) explains how to report a security problem without publishing its details.
 
