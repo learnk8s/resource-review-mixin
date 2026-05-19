@@ -122,8 +122,9 @@ Change [config.libsonnet](config.libsonnet) before running `make validate`. Thes
 | `kubeStateMetricsSelector` | `job="kube-state-metrics"` | Which kube-state-metrics measurements the rules read |
 | `cadvisorSelector` | `job="kubelet", metrics_path="/metrics/cadvisor"` | Which cAdvisor measurements the rules read |
 | `defaultTimeRange` | `now-7d` | The time period shown when the dashboard opens |
-| `showMultiCluster` | `false` | Whether the dashboard shows a cluster picker |
+| `showMultiCluster` | `false` | Whether Cluster is a metric-backed multi-cluster picker instead of a named single-cluster context value |
 | `clusterLabel` | `cluster` | The label that names each cluster when the picker is enabled |
+| `singleClusterName` | `current-cluster` | The Cluster value shown when source metrics do not carry a cluster label |
 
 The same file contains the optional warning colors, book link, and links to the standard Kubernetes dashboards. A warning color only draws attention to a measured value; it does not recommend a change.
 
@@ -150,3 +151,7 @@ The first command creates the files and checks their format, queries, and Kubern
 ## License
 
 This project uses the [Apache License 2.0](LICENSE). [Third-party licenses](THIRD_PARTY_LICENSES.md) lists the libraries included under `vendor/`.
+
+## Sponsor
+
+Open-source development of this project is sponsored by [StormForge](https://stormforge.io/).

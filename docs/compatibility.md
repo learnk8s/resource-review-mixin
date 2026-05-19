@@ -39,7 +39,7 @@ The mixin looks for kube-state-metrics with `job="kube-state-metrics"` and for c
 
 The following metrics add limits, throttling, pressure, failures, resource settings, and Pod age.
 
-- **CPU limits and throttling:** `container_cpu_cfs_periods_total`, `container_cpu_cfs_throttled_periods_total`, and `container_cpu_cfs_throttled_seconds_total`.
+- **CPU limits and throttling:** `container_cpu_cfs_periods_total`, `container_cpu_cfs_throttled_periods_total`, and `container_cpu_cfs_throttled_seconds_total`. Some kubelet/cAdvisor versions omit the throttled-seconds counter while retaining the period counters; in that case the throttled-time value stays unavailable and the dashboard emits a warning.
 - **CPU and memory PSI:** `container_pressure_cpu_waiting_seconds_total` and `container_pressure_memory_waiting_seconds_total`.
 - **Memory detail:** `container_memory_rss` and `container_memory_cache`.
 - **Failure evidence:** `container_oom_events_total`, `kube_pod_container_status_restarts_total`, `kube_pod_container_status_last_terminated_reason`, and `kube_pod_container_status_last_terminated_exitcode`.

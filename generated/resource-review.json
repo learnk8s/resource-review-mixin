@@ -20,6 +20,13 @@
       "title": "Metric definitions and limitations",
       "type": "link",
       "url": "https://github.com/learnk8s/resource-review-mixin/blob/main/docs/metrics.md"
+    },
+    {
+      "icon": "external link",
+      "targetBlank": true,
+      "title": "Open-source project sponsored by StormForge",
+      "type": "link",
+      "url": "https://stormforge.io/"
     }
   ],
   "panels": [
@@ -875,6 +882,38 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "Max throttled time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.width",
+                "value": 125
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Max CPU pressure"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "History"
             },
             "properties": [
@@ -981,12 +1020,36 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "expr": "max_over_time(resource_review:container_cpu_throttled_seconds:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "Max throttled time",
+          "range": false,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max_over_time(resource_review:container_cpu_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "Max CPU pressure",
+          "range": false,
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) * 60",
           "format": "table",
           "instant": true,
           "legendFormat": "History",
           "range": false,
-          "refId": "E"
+          "refId": "G"
         },
         {
           "datasource": {
@@ -998,7 +1061,7 @@
           "instant": true,
           "legendFormat": "Coverage",
           "range": false,
-          "refId": "F"
+          "refId": "H"
         }
       ],
       "title": "CPU by Pod execution",
@@ -1055,8 +1118,10 @@
               "Value #B": "p95 CPU",
               "Value #C": "Max CPU",
               "Value #D": "Max throttling",
-              "Value #E": "History",
-              "Value #F": "Coverage",
+              "Value #E": "Max throttled time",
+              "Value #F": "Max CPU pressure",
+              "Value #G": "History",
+              "Value #H": "Coverage",
               "cluster": "Cluster",
               "container": "Container",
               "image": "Image",
@@ -1290,6 +1355,22 @@
                 "value": 75
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "OOMKilled"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bool"
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
           }
         ]
       },
@@ -1386,6 +1467,18 @@
           "legendFormat": "Restarts",
           "range": false,
           "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max_over_time(resource_review:container_last_termination_oomkilled{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "OOMKilled",
+          "range": false,
+          "refId": "G"
         }
       ],
       "title": "Memory and failures by Pod execution",
@@ -1444,6 +1537,7 @@
               "Value #D": "Max pressure",
               "Value #E": "OOM",
               "Value #F": "Restarts",
+              "Value #G": "OOMKilled",
               "cluster": "Cluster",
               "container": "Container",
               "image": "Image",
@@ -1855,6 +1949,66 @@
                     "value": "percentunit"
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Maximum throttled time"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "s"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Maximum CPU pressure"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percentunit"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Maximum memory pressure"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percentunit"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "OOMKilled"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bool"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Observed revision age"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "s"
+                  }
+                ]
               }
             ]
           },
@@ -2143,6 +2297,66 @@
               "legendFormat": "Memory difference ratio",
               "range": false,
               "refId": "U"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max_over_time(resource_review:container_cpu_throttled_seconds:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "Maximum throttled time",
+              "range": false,
+              "refId": "W"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max_over_time(resource_review:container_cpu_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "Maximum CPU pressure",
+              "range": false,
+              "refId": "X"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max_over_time(resource_review:container_memory_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "Maximum memory pressure",
+              "range": false,
+              "refId": "Y"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max_over_time(resource_review:container_last_termination_oomkilled{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "OOMKilled",
+              "range": false,
+              "refId": "Z"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "time() - min by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) ((max_over_time(resource_review:workload_revision_pod_created_timestamp_seconds{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) * on (cluster, namespace, pod, uid) group_left(container, image, image_id) (max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "Observed revision age",
+              "range": false,
+              "refId": "AA"
             }
           ],
           "title": "Evidence by revision, container, and immutable image",
@@ -2188,6 +2402,7 @@
                 },
                 "renameByName": {
                   "Value #A": "CPU request",
+                  "Value #AA": "Observed revision age",
                   "Value #B": "CPU limit",
                   "Value #C": "Highest replica CPU average",
                   "Value #D": "Highest replica CPU p95",
@@ -2209,6 +2424,10 @@
                   "Value #T": "Memory request minus maximum",
                   "Value #U": "Memory difference ratio",
                   "Value #V": "Current Pods",
+                  "Value #W": "Maximum throttled time",
+                  "Value #X": "Maximum CPU pressure",
+                  "Value #Y": "Maximum memory pressure",
+                  "Value #Z": "OOMKilled",
                   "cluster": "Cluster",
                   "container": "Container",
                   "image": "Image",
@@ -2388,7 +2607,7 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU usage unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_working_set_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory working set unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_cpu_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU PSI unavailable (optional)\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory PSI unavailable (optional)\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU request not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU limit not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory request not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory limit not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_oom_events_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"cAdvisor OOM counter unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_restarts_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Restart counter unavailable\", \"container\", \".*\") or label_replace((last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) == 0), \"warning\", \"CPU request is zero; ratio omitted\", \"container\", \".*\") or label_replace((last_over_time(resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) == 0), \"warning\", \"Memory request is zero; ratio omitted\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\", revision_source=\"pod_uid\"}[$__range])), \"warning\", \"Revision falls back to Pod UID\", \"container\", \".*\") or label_replace((count by (cluster, namespace, workload_type, workload, revision, revision_source, container) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))) > 1), \"warning\", \"Multiple immutable images in one revision\", \"container\", \".*\") or label_replace((clamp_max(count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) / ($__range_s / 60), 1) < 0.8), \"warning\", \"CPU sample coverage below 80%\", \"container\", \".*\")",
+              "expr": "label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU usage unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_cpu_throttled_periods:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU throttled-period evidence unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_cpu_throttled_seconds:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU throttled-time evidence unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_usage_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Total memory unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_working_set_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory working set unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_rss_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory RSS unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_cache_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory cache unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_cpu_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU PSI unavailable (optional)\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory PSI unavailable (optional)\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU request not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU limit not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory request not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory limit not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_oom_events_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"cAdvisor OOM counter unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_restarts_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Restart counter unavailable\", \"container\", \".*\") or label_replace((last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) == 0), \"warning\", \"CPU request is zero; ratio omitted\", \"container\", \".*\") or label_replace((last_over_time(resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) == 0), \"warning\", \"Memory request is zero; ratio omitted\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\", revision_source=\"pod_uid\"}[$__range])), \"warning\", \"Revision falls back to Pod UID\", \"container\", \".*\") or label_replace((count by (cluster, namespace, workload_type, workload, revision, revision_source, container) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))) > 1), \"warning\", \"Multiple immutable images in one revision\", \"container\", \".*\") or label_replace((clamp_max(count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) / ($__range_s / 60), 1) < 0.8), \"warning\", \"CPU sample coverage below 80%\", \"container\", \".*\")",
               "format": "table",
               "instant": true,
               "legendFormat": "Warning",
@@ -4518,7 +4737,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Age of the oldest selected Pod execution. This is execution context, not a claim about controller or application revision age.",
+          "description": "Elapsed time since the earliest observed Pod creation in the selected revision set. For a Pod-UID fallback revision, this is the Pod execution age.",
           "fieldConfig": {
             "defaults": {
               "mappings": [
@@ -4584,7 +4803,7 @@
               "refId": "A"
             }
           ],
-          "title": "Oldest observed Pod execution",
+          "title": "Observed revision age",
           "type": "stat"
         },
         {
@@ -4945,6 +5164,18 @@
         "type": "datasource"
       },
       {
+        "current": {
+          "selected": false,
+          "text": "current-cluster",
+          "value": "current-cluster"
+        },
+        "hide": 0,
+        "label": "Cluster",
+        "name": "cluster",
+        "query": "current-cluster",
+        "type": "constant"
+      },
+      {
         "allValue": null,
         "current": {
 
@@ -5036,7 +5267,7 @@
         "definition": "label_values(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\"}, revision)",
         "hide": 0,
         "includeAll": true,
-        "label": "Revision",
+        "label": "Workload revision",
         "multi": false,
         "name": "revision",
         "options": [

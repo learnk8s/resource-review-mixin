@@ -8,6 +8,10 @@
   // source series carry clusterLabel consistently across KSM and cAdvisor.
   showMultiCluster: false,
   clusterLabel: 'cluster',
+  // Standard single-cluster kube-prometheus-stack series commonly have no
+  // cluster label. Keep the required Cluster control visible as a named,
+  // single-value context control without adding a false PromQL matcher.
+  singleClusterName: 'current-cluster',
   kubeStateMetricsSelector: 'job="kube-state-metrics"',
   cadvisorSelector: 'job="kubelet", metrics_path="/metrics/cadvisor"',
   namespace: 'monitoring',
