@@ -301,6 +301,8 @@ The queries return one row for each of the two Pod UIDs:
 
 The two Pods used almost the same CPU during this hour. The table still keeps them separate because a single workload average would hide the difference if one Pod later used much more CPU than the other. The revision summary is calculated only after these per-Pod values exist.
 
+The **Workload Context** section keeps the selected workload kind and name together with one row for every currently reported revision, container, and immutable image. Each row includes current replica count, observed revision age, CPU and memory requests and limits, and the shortest available CPU observation history. Historical-only revisions remain available in the revision summary but do not appear as current context.
+
 ## Check CPU usage, limits, and throttling
 
 CPU usage is measured in cores, and one core means one CPU-second used during one wall-clock second. The recording rule starts with the five-minute [`rate()`](https://prometheus.io/docs/prometheus/latest/querying/functions/#rate) of cumulative CPU time:

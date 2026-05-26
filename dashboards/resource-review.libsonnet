@@ -6,10 +6,11 @@ function(config)
   local clusterLabel = config.clusterLabel;
   local clusterSelector = if config.showMultiCluster then '%s=~"$cluster", ' % clusterLabel else '';
   local selector = '%snamespace=~"$namespace", workload_type=~"$workload_type", workload=~"$workload", revision=~"$revision", pod=~"$pod", container=~"$container"' % clusterSelector;
+  local podSelector = '%snamespace=~"$namespace", workload_type=~"$workload_type", workload=~"$workload", revision=~"$revision", pod=~"$pod"' % clusterSelector;
   local identityMetric = 'resource_review:workload_revision_pod_container_info{%s}' % selector;
   local fallbackIdentityMetric = 'resource_review:workload_revision_pod_container_info{%s, revision_source="pod_uid"}' % selector;
   local identity = 'max_over_time(%s[$__range])' % identityMetric;
-  local created = 'resource_review:workload_revision_pod_created_timestamp_seconds{%s}' % selector;
+  local created = 'resource_review:workload_revision_pod_created_timestamp_seconds{%s}' % podSelector;
   local cpuUsage = 'resource_review:container_cpu_usage_cores:rate5m{%s}' % selector;
   local cpuRequest = 'resource_review:container_cpu_request_cores{%s}' % selector;
   local cpuLimit = 'resource_review:container_cpu_limit_cores{%s}' % selector;
@@ -32,6 +33,7 @@ function(config)
   local matchLabels = '%s, namespace, pod, uid, container' % clusterLabel;
   local summaryLabels = '%s, namespace, workload_type, workload, revision, revision_source, container, image, image_id' % clusterLabel;
   local summaryWithoutImageLabels = '%s, namespace, workload_type, workload, revision, revision_source, container' % clusterLabel;
+  local currentContextLabels = summaryLabels;
 
   local last(metric) = 'last_over_time(%s[$__range])' % metric;
   local minimum(metric) = 'min_over_time(%s[$__range])' % metric;
@@ -57,11 +59,28 @@ function(config)
   local summaryMemoryMax = summarize(maximum(memoryWss));
   local summaryMemoryPressure = summarize(maximum(memoryPressure));
   local summaryOomKilled = summarize(oomKilled);
-  local summaryRevisionAge = 'time() - min by (%s) ((%s) * on (%s, namespace, pod, uid) group_left(container, image, image_id) (%s))' % [
+  local summaryRevisionAge = 'time() - min by (%s) ((%s) * on (%s, namespace, pod, uid) group_left() (%s))' % [
     summaryLabels,
-    maximum(created),
-    clusterLabel,
     identity,
+    clusterLabel,
+    maximum(created),
+  ];
+  local currentReplicaCount = 'count by (%s) (count by (%s, pod, uid) (%s))' % [currentContextLabels, currentContextLabels, identityMetric];
+  local currentRevisionAge = 'time() - min by (%s) (%s * on (%s, namespace, pod, uid) group_left() %s)' % [
+    currentContextLabels,
+    identityMetric,
+    clusterLabel,
+    created,
+  ];
+  local currentCpuRequest = 'max by (%s) (%s)' % [currentContextLabels, cpuRequest];
+  local currentCpuLimit = 'max by (%s) (%s)' % [currentContextLabels, cpuLimit];
+  local currentMemoryRequest = 'max by (%s) (%s)' % [currentContextLabels, memoryRequest];
+  local currentMemoryLimit = 'max by (%s) (%s)' % [currentContextLabels, memoryLimit];
+  local currentObservationHistory = '(min by (%s) (count_over_time(%s[$__range]) * 60)) and on (%s) (%s)' % [
+    currentContextLabels,
+    cpuUsage,
+    currentContextLabels,
+    currentReplicaCount,
   ];
   local summaryCpuDifference = '(%s) - (%s)' % [summaryCpuRequest, summaryCpuP95];
   local summaryMemoryDifference = '(%s) - (%s)' % [summaryMemoryRequest, summaryMemoryMax];
@@ -486,7 +505,7 @@ function(config)
       + { id: 1 }
     ),
 
-    row(10, 'Review context', 4),
+    row(10, 'Workload Context', 4),
     stat(19, 'Current Pods', 'Pod UIDs currently reported for the selected revisions. This is not the desired or Ready replica count.', grid(0, 5, 4, 5), [
       target('A', 'count(count by (%s, namespace, pod, uid) (%s))' % [clusterLabel, identityMetric], 'Current Pods', true),
     ]),
@@ -506,16 +525,34 @@ function(config)
       target('A', 'clamp_max(min(count_over_time(%s[$__range])) / ($__range_s / 60), 1)' % cpuUsage, 'Coverage', true),
     ], 'percentunit'),
 
-    row(60, 'Peak usage vs limits', 10),
-    bargauge(61, 'Peak CPU as % of limit', 'Highest sampled five-minute CPU usage in the selected time window as a percentage of the configured limit for each Pod and container. Omitted when no limit is configured. This is evidence about the configured ceiling, not a sizing recommendation.', grid(0, 11, 12, 5), [
+    table(9, 'Current workload revisions and configuration', 'One row per currently reported workload revision, container, and immutable image. It keeps workload kind and name, replica count, observed revision age, current requests and limits, and the shortest available CPU observation history together.', grid(0, 10, 24, 8), [
+      target('A', currentReplicaCount, 'Replica count', true, 'table'),
+      target('B', currentRevisionAge, 'Observed revision age', true, 'table'),
+      target('C', currentCpuRequest, 'CPU request', true, 'table'),
+      target('D', currentCpuLimit, 'CPU limit', true, 'table'),
+      target('E', currentMemoryRequest, 'Memory request', true, 'table'),
+      target('F', currentMemoryLimit, 'Memory limit', true, 'table'),
+      target('G', currentObservationHistory, 'Observation history', true, 'table'),
+    ], [
+      { ref: 'A', name: 'Replica count', unit: 'short', width: 100 },
+      { ref: 'B', name: 'Observed revision age', unit: 's', width: 130 },
+      { ref: 'C', name: 'CPU request', unit: 'short', width: 95 },
+      { ref: 'D', name: 'CPU limit', unit: 'short', width: 90 },
+      { ref: 'E', name: 'Memory request', unit: 'bytes', width: 110 },
+      { ref: 'F', name: 'Memory limit', unit: 'bytes', width: 105 },
+      { ref: 'G', name: 'Observation history', unit: 's', width: 120 },
+    ], extraExclude=['revision_source'], compact=true),
+
+    row(60, 'Peak usage vs limits', 18),
+    bargauge(61, 'Peak CPU as % of limit', 'Highest sampled five-minute CPU usage in the selected time window as a percentage of the configured limit for each Pod and container. Omitted when no limit is configured. This is evidence about the configured ceiling, not a sizing recommendation.', grid(0, 19, 12, 5), [
       target('A', '(' + maximum(cpuUsage) + ') / (' + last(cpuLimit) + ') and on (' + matchLabels + ') (' + last(cpuLimit) + ' > 0)', '{{pod}} / {{container}}', true),
     ]),
-    bargauge(62, 'Peak memory as % of limit', 'Highest sampled total memory in the selected time window as a percentage of the configured limit for each Pod and container. Omitted when no limit is configured. This does not explain the cause of a large percentage.', grid(12, 11, 12, 5), [
+    bargauge(62, 'Peak memory as % of limit', 'Highest sampled total memory in the selected time window as a percentage of the configured limit for each Pod and container. Omitted when no limit is configured. This does not explain the cause of a large percentage.', grid(12, 19, 12, 5), [
       target('A', '(' + maximum(memoryUsage) + ') / (' + last(memoryLimit) + ') and on (' + matchLabels + ') (' + last(memoryLimit) + ' > 0)', '{{pod}} / {{container}}', true),
     ]),
 
-    row(40, 'Compare replicas before aggregating', 16),
-    table(41, 'CPU by Pod execution', 'Average, p95, and maximum are calculated independently for every immutable Pod execution. History and coverage keep short-lived or poorly observed replicas visible.', grid(0, 17, 24, 8), [
+    row(40, 'Compare replicas before aggregating', 24),
+    table(41, 'CPU by Pod execution', 'Average, p95, and maximum are calculated independently for every immutable Pod execution. History and coverage keep short-lived or poorly observed replicas visible.', grid(0, 25, 24, 8), [
       target('A', average(cpuUsage), 'Avg CPU', true, 'table'),
       target('B', p95(cpuUsage), 'p95 CPU', true, 'table'),
       target('C', maximum(cpuUsage), 'Max CPU', true, 'table'),
@@ -534,7 +571,7 @@ function(config)
       { ref: 'G', name: 'History', unit: 's', width: 90 },
       { ref: 'H', name: 'Coverage', unit: 'percentunit', width: 90 },
     ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id'], compact=true),
-    table(42, 'Memory and failures by Pod execution', 'Average and maximum working set remain per replica. Total maximum, pressure, OOM events, and restarts are separate signals and do not identify application impact by themselves.', grid(0, 25, 24, 8), [
+    table(42, 'Memory and failures by Pod execution', 'Average and maximum working set remain per replica. Total maximum, pressure, OOM events, and restarts are separate signals and do not identify application impact by themselves.', grid(0, 33, 24, 8), [
       target('A', average(memoryWss), 'Avg working set', true, 'table'),
       target('B', maximum(memoryWss), 'Max working set', true, 'table'),
       target('C', maximum(memoryUsage), 'Max total', true, 'table'),
@@ -552,7 +589,7 @@ function(config)
       { ref: 'G', name: 'OOMKilled', unit: 'bool', width: 90 },
     ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id'], compact=true),
 
-    row(50, 'Revision summary and evidence warnings', 33, true, [
+    row(50, 'Revision summary and evidence warnings', 41, true, [
       table(51, 'Evidence by revision, container, and immutable image', 'Values are grouped by the complete revision/container/image identity. Replica statistics are calculated first; the table then keeps the highest replica statistic rather than hiding replica differences in a workload average.', grid(0, 34, 24, 13), [
         target('A', summaryCpuRequest, 'CPU request', true, 'table'),
         target('B', summaryCpuLimit, 'CPU limit', true, 'table'),
@@ -615,7 +652,7 @@ function(config)
       ], [{ ref: 'A', name: 'Warning', unit: 'short' }], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
     ]),
 
-    row(20, 'CPU evidence: usage, waiting, and throttling', 34, true, [
+    row(20, 'CPU evidence: usage, waiting, and throttling', 42, true, [
       timeSeries(21, 'CPU usage, request, and limit', 'CPU usage is a five-minute rate in cores. Request and limit lines retain Pod UID and revision identity. Request is dashed orange; limit is dashed red.', grid(0, 35, 24, 9), [
         target('A', cpuUsage, '{{pod}} / {{container}} usage'),
         target('B', cpuRequest, '{{pod}} / {{container}} request'),
@@ -652,7 +689,7 @@ function(config)
       ], 'percentunit'),
     ]),
 
-    row(30, 'Memory evidence: composition, pressure, and failures', 35, true, [
+    row(30, 'Memory evidence: composition, pressure, and failures', 43, true, [
       timeSeries(31, 'Total and working-set memory', 'Total is memory charged to the cgroup. Working set subtracts inactive file cache and is not equivalent to application memory. Request is dashed orange; limit is dashed red.', grid(0, 36, 24, 9), [
         target('A', memoryUsage, '{{pod}} / {{container}} total'),
         target('B', memoryWss, '{{pod}} / {{container}} working set'),
@@ -697,7 +734,7 @@ function(config)
       ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id', 'Value #D']),
     ]),
 
-    row(70, 'Identity, requests, and limits', 36, true, [
+    row(70, 'Identity, requests, and limits', 44, true, [
       table(11, 'Revision and execution identity', 'Pod UID and immutable image ID preserve provenance. revision_source=pod_uid is a conservative fallback and intentionally keeps each Pod execution separate rather than mixing uncertain revisions.', grid(0, 37, 24, 8), [
         target('A', 'count by (%s, namespace, workload_type, workload, revision, revision_source, image, image_id, pod, uid, container, node) (%s)' % [clusterLabel, identity], 'Identity', true, 'table'),
       ], [{ ref: 'A', name: 'Identity samples', unit: 'short' }], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload']),
