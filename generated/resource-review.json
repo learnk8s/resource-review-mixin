@@ -642,7 +642,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Observed revision age"
+              "options": "Revision age"
             },
             "properties": [
               {
@@ -722,7 +722,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Observation history"
+              "options": "Available observation history"
             },
             "properties": [
               {
@@ -731,7 +731,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 120
+                "value": 170
               }
             ]
           }
@@ -779,7 +779,7 @@
           "expr": "time() - min by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"} * on (cluster, namespace, pod, uid) group_left() resource_review:workload_revision_pod_created_timestamp_seconds{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\"})",
           "format": "table",
           "instant": true,
-          "legendFormat": "Observed revision age",
+          "legendFormat": "Revision age",
           "range": false,
           "refId": "B"
         },
@@ -839,7 +839,7 @@
           "expr": "(min by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) * 60)) and on (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id, pod, uid) (resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})))",
           "format": "table",
           "instant": true,
-          "legendFormat": "Observation history",
+          "legendFormat": "Available observation history",
           "range": false,
           "refId": "G"
         }
@@ -888,12 +888,12 @@
             },
             "renameByName": {
               "Value #A": "Replica count",
-              "Value #B": "Observed revision age",
+              "Value #B": "Revision age",
               "Value #C": "CPU request",
               "Value #D": "CPU limit",
               "Value #E": "Memory request",
               "Value #F": "Memory limit",
-              "Value #G": "Observation history",
+              "Value #G": "Available observation history",
               "cluster": "Cluster",
               "container": "Container",
               "image": "Image",

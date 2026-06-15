@@ -37,7 +37,7 @@ expected_variables='["datasource","cluster","namespace","workload_type","workloa
   and ([$panels[] | select(.id == 15).title] == ["CPU coverage"])
   and ([$panels[] | select(.id == 10).title] == ["Workload Context"])
   and ([$panels[] | select(.id == 9).title] == ["Current workload revisions and configuration"])
-  and ([ $panels[] | select(.id == 9).targets[].legendFormat ] | sort == ["CPU limit", "CPU request", "Memory limit", "Memory request", "Observation history", "Observed revision age", "Replica count"])
+  and ([ $panels[] | select(.id == 9).targets[].legendFormat ] | sort == ["Available observation history", "CPU limit", "CPU request", "Memory limit", "Memory request", "Replica count", "Revision age"])
   and ([$panels[] | select(.id == 60).title] == ["Peak usage vs limits"])
   and ([$panels[] | select(.id == 61).title] == ["Peak CPU as % of limit"])
   and ([$panels[] | select(.id == 62).title] == ["Peak memory as % of limit"])
