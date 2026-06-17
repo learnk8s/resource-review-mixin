@@ -9,6 +9,25 @@ KUBECTL ?= kubectl
 JQ ?= jq
 JSONNET_PATHS ?= -J vendor -J .
 
+ifneq ($(filter dev,$(MAKECMDGOALS)),)
+ifneq ($(strip $(MAKECMDGOALS)),dev)
+INVALID_DEV_INVOCATION := true
+endif
+endif
+
+ifeq ($(INVALID_DEV_INVOCATION),true)
+DEV_USAGE := $(if $(filter down,$(MAKECMDGOALS)),make dev-down,make dev)
+
+.PHONY: $(MAKECMDGOALS)
+
+dev:
+	@printf '⚠️  Did you mean `$(DEV_USAGE)`?\n'
+
+$(filter-out dev,$(MAKECMDGOALS)):
+	@:
+
+else
+
 JSONNET_SOURCES := $(shell find . -path './kubernetes-mixin' -prune -o -path './vendor' -prune -o \( -name '*.jsonnet' -o -name '*.libsonnet' \) -print)
 
 .PHONY: all dev dev-open dev-down generate validate _validate check-generated cluster-check fmt-check jsonnet-lint rules-test dashboard-test manifest-test config-test smoke-grafana integration-test clean
@@ -147,3 +166,5 @@ cluster-check:
 clean:
 	rm -f generated/resource-review.json generated/prometheus-rules.yaml
 	rm -f manifests/prometheus-rule.yaml manifests/dashboard-configmap.yaml
+
+endif
