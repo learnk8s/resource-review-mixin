@@ -31,29 +31,12 @@
   ],
   "panels": [
     {
-      "description": "The dashboard follows the Kubernetes Rightsizing review sequence: establish evidence quality, compare replicas, then inspect CPU, memory, and failure signals.",
-      "gridPos": {
-        "h": 4,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "id": 1,
-      "options": {
-        "content": "The time picker is the **observation window**. Start with history and coverage, compare replicas before aggregating them, then inspect CPU waiting and throttling, memory composition and pressure, restarts, and OOM evidence.\n\n**Missing**, **not configured**, and numerical **zero** are different states. Low usage in the selected history does not prove that a request or limit change is safe.\n",
-        "mode": "markdown"
-      },
-      "pluginVersion": "v13.0.0",
-      "title": "How to use this review",
-      "type": "text"
-    },
-    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 4
+        "y": 0
       },
       "id": 10,
       "panels": [
@@ -101,7 +84,7 @@
         "h": 5,
         "w": 4,
         "x": 0,
-        "y": 5
+        "y": 1
       },
       "id": 19,
       "options": {
@@ -175,7 +158,7 @@
         "h": 5,
         "w": 4,
         "x": 4,
-        "y": 5
+        "y": 1
       },
       "id": 12,
       "options": {
@@ -249,7 +232,7 @@
         "h": 5,
         "w": 4,
         "x": 8,
-        "y": 5
+        "y": 1
       },
       "id": 18,
       "options": {
@@ -323,7 +306,7 @@
         "h": 5,
         "w": 4,
         "x": 12,
-        "y": 5
+        "y": 1
       },
       "id": 17,
       "options": {
@@ -397,7 +380,7 @@
         "h": 5,
         "w": 4,
         "x": 16,
-        "y": 5
+        "y": 1
       },
       "id": 14,
       "options": {
@@ -471,7 +454,7 @@
         "h": 5,
         "w": 4,
         "x": 20,
-        "y": 5
+        "y": 1
       },
       "id": 15,
       "options": {
@@ -741,7 +724,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 10
+        "y": 6
       },
       "id": 9,
       "options": {
@@ -921,7 +904,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 14
       },
       "id": 60,
       "panels": [
@@ -978,7 +961,7 @@
         "h": 5,
         "w": 12,
         "x": 0,
-        "y": 19
+        "y": 15
       },
       "id": 61,
       "options": {
@@ -1059,7 +1042,7 @@
         "h": 5,
         "w": 12,
         "x": 12,
-        "y": 19
+        "y": 15
       },
       "id": 62,
       "options": {
@@ -1098,7 +1081,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 20
       },
       "id": 40,
       "panels": [
@@ -1358,7 +1341,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 25
+        "y": 21
       },
       "id": 41,
       "options": {
@@ -1787,7 +1770,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 33
+        "y": 29
       },
       "id": 42,
       "options": {
@@ -1974,7 +1957,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 37
       },
       "id": 50,
       "panels": [
@@ -2425,7 +2408,7 @@
             "h": 13,
             "w": 24,
             "x": 0,
-            "y": 34
+            "y": 30
           },
           "id": 51,
           "options": {
@@ -2993,7 +2976,7 @@
             "h": 9,
             "w": 24,
             "x": 0,
-            "y": 47
+            "y": 43
           },
           "id": 52,
           "options": {
@@ -3107,7 +3090,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 42
+        "y": 38
       },
       "id": 20,
       "panels": [
@@ -3203,7 +3186,7 @@
             "h": 9,
             "w": 24,
             "x": 0,
-            "y": 35
+            "y": 31
           },
           "id": 21,
           "options": {
@@ -3470,7 +3453,7 @@
             "h": 9,
             "w": 24,
             "x": 0,
-            "y": 44
+            "y": 40
           },
           "id": 22,
           "options": {
@@ -3700,7 +3683,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 53
+            "y": 49
           },
           "id": 23,
           "options": {
@@ -3763,7 +3746,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 53
+            "y": 49
           },
           "id": 24,
           "options": {
@@ -3826,7 +3809,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 61
+            "y": 57
           },
           "id": 25,
           "options": {
@@ -3872,7 +3855,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 39
       },
       "id": 30,
       "panels": [
@@ -3968,7 +3951,7 @@
             "h": 9,
             "w": 24,
             "x": 0,
-            "y": 36
+            "y": 32
           },
           "id": 31,
           "options": {
@@ -4067,7 +4050,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 45
+            "y": 41
           },
           "id": 32,
           "options": {
@@ -4322,7 +4305,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 53
+            "y": 49
           },
           "id": 33,
           "options": {
@@ -4530,7 +4513,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 61
+            "y": 57
           },
           "id": 34,
           "options": {
@@ -4737,7 +4720,7 @@
             "h": 9,
             "w": 24,
             "x": 0,
-            "y": 69
+            "y": 65
           },
           "id": 35,
           "options": {
@@ -4902,7 +4885,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 44
+        "y": 40
       },
       "id": 70,
       "panels": [
@@ -5041,7 +5024,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 37
+            "y": 33
           },
           "id": 11,
           "options": {
@@ -5180,7 +5163,7 @@
             "h": 6,
             "w": 6,
             "x": 0,
-            "y": 45
+            "y": 41
           },
           "id": 13,
           "options": {
@@ -5386,7 +5369,7 @@
             "h": 8,
             "w": 18,
             "x": 6,
-            "y": 45
+            "y": 41
           },
           "id": 16,
           "options": {
