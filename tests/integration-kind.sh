@@ -112,7 +112,8 @@ printf '%s\n' "$kind_output"
 "$KIND" load docker-image busybox:1.36 --name "$CLUSTER_NAME"
 
 "$HELM" upgrade --install kube-prometheus-stack \
-  oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack \
+  kube-prometheus-stack \
+  --repo https://prometheus-community.github.io/helm-charts \
   --version "$KUBE_PROMETHEUS_STACK_VERSION" \
   --namespace monitoring \
   --create-namespace \
