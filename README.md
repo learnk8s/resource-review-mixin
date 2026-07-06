@@ -45,7 +45,9 @@ make dev-down
 
 ## Install it in a cluster
 
-`make dev` installs [`kube-prometheus-stack`](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack), including the required Prometheus Operator `PrometheusRule` CRD, in the local cluster. Before installing this project in another cluster, make sure that cluster already has the same CRD. Prometheus must receive Kubernetes object details from [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) and container CPU and memory measurements from [cAdvisor](https://github.com/google/cadvisor). Check the tested versions and required measurements in [Compatibility and required metrics](docs/compatibility.md).
+`make dev` installs [`kube-prometheus-stack`](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack), including the required Prometheus Operator `PrometheusRule` CRD, in the local cluster. Before installing this project in another cluster, make sure that cluster already has the same CRD. Prometheus must receive Kubernetes object details from [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) and container CPU and memory measurements from [cAdvisor](https://github.com/google/cadvisor). Metrics Server is not required.
+
+CPU and memory [Pressure Stall Information (PSI)](https://docs.kernel.org/accounting/psi.html) metrics are optional. When a node or cAdvisor version does not expose them, the dashboard continues to work and shows the pressure evidence as unavailable rather than zero. Check the tested versions and required measurements in [Compatibility and required metrics](docs/compatibility.md).
 
 Review [config.libsonnet](config.libsonnet), then create and check the files:
 
@@ -125,6 +127,8 @@ Change [config.libsonnet](config.libsonnet) before running `make validate`. Thes
 | `showMultiCluster` | `false` | Whether Cluster is a metric-backed multi-cluster picker instead of a named single-cluster context value |
 | `clusterLabel` | `cluster` | The label that names each cluster when the picker is enabled |
 | `singleClusterName` | `current-cluster` | The Cluster value shown when source metrics do not carry a cluster label |
+
+The time picker supports observation windows up to 30 days. Prometheus must retain at least 30 days of samples for the complete window to contain data; `make dev` configures 31 days of retention. The dashboard opens with the seven-day `defaultTimeRange`, and you can select **30d** from the time picker.
 
 The same file contains the optional warning colors, book link, and links to the standard Kubernetes dashboards. A warning color only draws attention to a measured value; it does not recommend a change.
 
