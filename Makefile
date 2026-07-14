@@ -8,6 +8,8 @@ KUBECONFORM ?= kubeconform
 KUBECTL ?= kubectl
 JQ ?= jq
 JSONNET_PATHS ?= -J vendor -J .
+TOOLS_BIN := $(CURDIR)/.tools/bin
+export PATH := $(TOOLS_BIN):$(PATH)
 
 ifneq ($(filter dev,$(MAKECMDGOALS)),)
 ifneq ($(strip $(MAKECMDGOALS)),dev)
@@ -30,9 +32,12 @@ else
 
 JSONNET_SOURCES := $(shell find . -path './kubernetes-mixin' -prune -o -path './vendor' -prune -o \( -name '*.jsonnet' -o -name '*.libsonnet' \) -print)
 
-.PHONY: all dev dev-open dev-down generate validate _validate check-generated cluster-check fmt-check jsonnet-lint rules-test dashboard-test manifest-test config-test smoke-grafana integration-test clean
+.PHONY: all dev dev-open dev-down tools generate validate _validate check-generated cluster-check fmt-check jsonnet-lint rules-test dashboard-test manifest-test config-test smoke-grafana integration-test clean
 
 all: check-generated validate
+
+tools:
+	@TOOLS_BIN="$(TOOLS_BIN)" ./scripts/ensure-tools.sh
 
 dev:
 	@./scripts/dev-kind.sh
@@ -128,14 +133,14 @@ smoke-grafana: generate
 integration-test: generate
 	./tests/integration-kind.sh
 
-validate:
+validate: tools
 	@printf '🔎 Validating source and generated files\n'
 	@$(MAKE) --no-print-directory _validate
 	@printf '\n✅ Validation passed.\n'
 
 _validate: generate fmt-check jsonnet-lint config-test rules-test dashboard-test manifest-test
 
-check-generated:
+check-generated: tools
 	@printf '🔄 Checking committed generated files\n'
 	@output=$$({ \
 		set -e; \
