@@ -100,7 +100,16 @@ make dev
 
 The command creates a dedicated cluster, installs Prometheus and Grafana, adds the dashboard and rules, starts a sample workload, and prints links to Grafana and Prometheus. Open **Kubernetes Resource Review** in the **Kubernetes** folder.
 
-Run `make dev` again to update the cluster, use `make dev-open` to open Grafana in your browser, and remove the cluster with:
+Run `make dev` again to update the cluster. This command keeps the existing cluster and reapplies the generated recording rules and dashboard ConfigMap.
+
+Use `make dev-open` to open Grafana in your browser:
+
+```bash
+make dev-open
+🌐 Opening Grafana in your default browser...
+```
+
+And remove the cluster with:
 
 ```bash
 make dev-down

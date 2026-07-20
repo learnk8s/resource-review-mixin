@@ -33,7 +33,7 @@ function(config)
   local matchLabels = '%s, namespace, pod, uid, container' % clusterLabel;
   local summaryLabels = '%s, namespace, workload_type, workload, revision, container' % clusterLabel;
   local imageSummaryLabels = summaryLabels + ', image, image_id';
-  local currentContextLabels = summaryLabels;
+  local currentContextLabels = '%s, namespace, workload_type, workload, revision, revision_source, container, image, image_id' % clusterLabel;
 
   local last(metric) = 'last_over_time(%s[$__range])' % metric;
   local minimum(metric) = 'min_over_time(%s[$__range])' % metric;
