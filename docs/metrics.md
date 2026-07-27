@@ -386,7 +386,7 @@ If `Last terminated reason` is `OOMKilled`, the most recent recorded termination
 
 The data may be missing because the node does not expose the metric, Prometheus missed the scrape, or the Pod did not run during that period. The dashboard leaves missing data empty instead of displaying a false `0`.
 
-The **Missing evidence warnings** column in the **Review Table** counts matching warning signals for each workload revision and container. Those signals identify what is missing or why a value could not be calculated:
+The **Missing evidence warnings** column in the **Review Table** counts matching warning signals for each workload revision, container, and immutable image. Those signals identify what is missing or why a value could not be calculated:
 
 - **CPU or memory usage unavailable:** Prometheus has no usage samples.
 - **CPU throttled-period or throttled-time evidence unavailable:** kubelet/cAdvisor did not expose the matching counter for this container and time range.
@@ -399,7 +399,7 @@ The **Missing evidence warnings** column in the **Review Table** counts matching
 - **Multiple immutable images:** one revision contains more than one image ID.
 - **CPU sample coverage below 80 percent:** Prometheus collected fewer than 80 percent of the expected samples.
 
-The **Review Table** keeps maximum throttled-period ratio, maximum throttled-time rate, maximum CPU pressure, maximum memory pressure, cAdvisor OOM events, Kubernetes `OOMKilled` state, and restarts alongside current requests and limits, CPU p95 and maximum, total memory maximum, replica count, and observation duration. Optional or unavailable evidence remains an empty cell, while **Missing evidence warnings** reports the matching warning count so absence can be distinguished from a measured zero.
+The **Review Table** keeps each immutable image in a separate row and shows maximum throttled-period ratio, maximum throttled-time rate, maximum CPU pressure, maximum memory pressure, cAdvisor OOM events, Kubernetes `OOMKilled` state, and restarts alongside current requests and limits, CPU p95 and maximum, total memory maximum, replica count, and observation duration. Optional or unavailable evidence remains an empty cell, while **Missing evidence warnings** reports the matching warning count so absence can be distinguished from a measured zero.
 
 ## Find the Pod behind each value
 

@@ -31,9 +31,9 @@ function(config)
   local restarts = 'increase(%s[$__range])' % restartCounter;
   local oomKilled = 'max_over_time(%s[$__range])' % oomKilledMetric;
   local matchLabels = '%s, namespace, pod, uid, container' % clusterLabel;
-  local summaryLabels = '%s, namespace, workload_type, workload, revision, container' % clusterLabel;
-  local imageSummaryLabels = summaryLabels + ', image, image_id';
-  local currentContextLabels = '%s, namespace, workload_type, workload, revision, revision_source, container, image, image_id' % clusterLabel;
+  local revisionContainerLabels = '%s, namespace, workload_type, workload, revision, revision_source, container' % clusterLabel;
+  local summaryLabels = revisionContainerLabels + ', image, image_id';
+  local currentContextLabels = summaryLabels;
 
   local last(metric) = 'last_over_time(%s[$__range])' % metric;
   local minimum(metric) = 'min_over_time(%s[$__range])' % metric;
@@ -99,7 +99,7 @@ function(config)
     warning(last(cpuRequest) + ' == 0', 'CPU request is zero; ratio omitted'),
     warning(last(memoryRequest) + ' == 0', 'Memory request is zero; ratio omitted'),
     warning('max_over_time(%s[$__range])' % fallbackIdentityMetric, 'Revision falls back to Pod UID'),
-    warning('count by (%s) (count by (%s) (%s)) > 1' % [summaryLabels, imageSummaryLabels, identity], 'Multiple immutable images in one revision'),
+    warning('(count by (%s) (count by (%s) (%s)) > 1) * on (%s) group_right() count by (%s) (%s)' % [revisionContainerLabels, summaryLabels, identity, revisionContainerLabels, summaryLabels, identity], 'Multiple immutable images in one revision'),
     warning('clamp_max(count_over_time(%s[$__range]) / ($__range_s / 60), 1) < 0.8' % cpuUsage, 'CPU sample coverage below 80%'),
   ]);
   local summaryWarningCount = 'count by (%s) (%s) or on (%s) (0 * count by (%s) (%s))' % [
@@ -561,7 +561,7 @@ function(config)
     ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id'], compact=true),
 
     row(50, 'Review Table', 33, true, [
-      table(51, 'Evidence by workload revision and container', 'One row per workload revision and container. It combines current requests and limits with selected-window usage, replica count, observation duration, failure signals, and missing-evidence warnings.', grid(0, 34, 24, 13), [
+      table(51, 'Evidence by workload revision, container, and immutable image', 'One row per workload revision, container, and immutable image. It combines current requests and limits with selected-window usage, replica count, observation duration, failure signals, and missing-evidence warnings without merging evidence from different images.', grid(0, 34, 24, 13), [
         target('A', summaryCpuRequest, 'CPU request', true, 'table'),
         target('B', summaryCpuLimit, 'CPU limit', true, 'table'),
         target('D', summaryCpuP95, 'Highest replica CPU p95', true, 'table'),
