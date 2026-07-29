@@ -399,7 +399,7 @@ The **Missing evidence warnings** column in the **Review Table** counts matching
 - **Multiple immutable images:** one revision contains more than one image ID.
 - **CPU sample coverage below 80 percent:** Prometheus collected fewer than 80 percent of the expected samples.
 
-The **Review Table** keeps each immutable image in a separate row and shows maximum throttled-period ratio, maximum throttled-time rate, maximum CPU pressure, maximum memory pressure, cAdvisor OOM events, Kubernetes `OOMKilled` state, and restarts alongside current requests and limits, CPU p95 and maximum, total memory maximum, replica count, and observation duration. Optional or unavailable evidence remains an empty cell, while **Missing evidence warnings** reports the matching warning count so absence can be distinguished from a measured zero.
+The **Review Table** keeps each immutable image in a separate row and shows maximum throttled-period ratio, maximum throttled-time rate, maximum CPU pressure, maximum memory pressure, cAdvisor OOM events, Kubernetes `OOMKilled` state, and restarts alongside CPU p95 and maximum, total memory maximum, replica count, and observation duration. Request and limit columns use the last value observed during the selected time range, so a revision that is no longer running retains the configuration recorded while it existed. Optional or unavailable evidence remains an empty cell, while **Missing evidence warnings** reports the matching warning count so absence can be distinguished from a measured zero.
 
 ## Find the Pod behind each value
 
