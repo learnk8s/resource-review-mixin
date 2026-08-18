@@ -3746,7 +3746,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "One row per workload revision, container, and immutable image. It combines the last observed requests and limits with selected-window usage, replica count, observation duration, failure signals, and missing-evidence warnings without merging evidence from different images.",
+          "description": "One row per workload revision, container, and immutable image. It combines the last observed requests and limits with selected-window usage, distinct Pod executions, observation duration, failure signals, and missing-evidence warnings without merging evidence from different images.",
           "fieldConfig": {
             "defaults": {
               "custom": {
@@ -4223,7 +4223,7 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id, pod, uid) (resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}))",
+              "expr": "count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id, pod, uid) (max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))",
               "format": "table",
               "instant": true,
               "legendFormat": "Replica count",
