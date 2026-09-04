@@ -913,88 +913,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Highest sampled five-minute CPU usage in the selected time window as a percentage of the configured limit for each Pod and container. Omitted when no limit is configured. This is evidence about the configured ceiling, not a sizing recommendation.",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "color": "orange",
-                      "text": "No limit or evidence"
-                    }
-                  },
-                  "type": "special"
-                }
-              ],
-              "max": 1,
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 0.8
-                  }
-                ]
-              },
-              "unit": "percentunit"
-            },
-            "overrides": [
-
-            ]
-          },
-          "gridPos": {
-            "h": 5,
-            "w": 24,
-            "x": 0,
-            "y": 15
-          },
-          "id": 61,
-          "options": {
-            "displayMode": "gradient",
-            "orientation": "horizontal",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showUnfilled": true
-          },
-          "pluginVersion": "v13.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "(max_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) / (last_over_time(resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) and on (cluster, namespace, pod, uid, container) (last_over_time(resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) > 0)",
-              "format": "time_series",
-              "instant": true,
-              "legendFormat": "{{pod}} / {{container}}",
-              "range": false,
-              "refId": "A"
-            }
-          ],
-          "title": "Peak CPU as % of limit",
-          "type": "bargauge"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "CPU usage is a five-minute rate in cores. Request and limit lines retain Pod UID and revision identity. Request is dashed orange; limit is dashed red.",
+          "description": "CPU usage is a five-minute rate in cores. Each line keeps the Pod UID and revision identity.",
           "fieldConfig": {
             "defaults": {
               "custom": {
@@ -1009,79 +928,14 @@
               "unit": "short"
             },
             "overrides": [
-              {
-                "matcher": {
-                  "id": "byFrameRefID",
-                  "options": "B"
-                },
-                "properties": [
-                  {
-                    "id": "custom.lineStyle",
-                    "value": {
-                      "dash": [
-                        10,
-                        10
-                      ],
-                      "fill": "dash"
-                    }
-                  },
-                  {
-                    "id": "custom.fillOpacity",
-                    "value": 0
-                  },
-                  {
-                    "id": "custom.lineWidth",
-                    "value": 2
-                  },
-                  {
-                    "id": "color",
-                    "value": {
-                      "fixedColor": "orange",
-                      "mode": "fixed"
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byFrameRefID",
-                  "options": "C"
-                },
-                "properties": [
-                  {
-                    "id": "custom.lineStyle",
-                    "value": {
-                      "dash": [
-                        10,
-                        10
-                      ],
-                      "fill": "dash"
-                    }
-                  },
-                  {
-                    "id": "custom.fillOpacity",
-                    "value": 0
-                  },
-                  {
-                    "id": "custom.lineWidth",
-                    "value": 2
-                  },
-                  {
-                    "id": "color",
-                    "value": {
-                      "fixedColor": "red",
-                      "mode": "fixed"
-                    }
-                  }
-                ]
-              }
+
             ]
           },
           "gridPos": {
             "h": 9,
             "w": 24,
             "x": 0,
-            "y": 20
+            "y": 15
           },
           "id": 21,
           "options": {
@@ -1112,33 +966,9 @@
               "legendFormat": "{{pod}} / {{container}} usage",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
-              "format": "time_series",
-              "instant": false,
-              "legendFormat": "{{pod}} / {{container}} request",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
-              "format": "time_series",
-              "instant": false,
-              "legendFormat": "{{pod}} / {{container}} limit",
-              "range": true,
-              "refId": "C"
             }
           ],
-          "title": "CPU usage, request, and limit",
+          "title": "CPU usage over time",
           "type": "timeseries"
         },
         {
@@ -1146,7 +976,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Minimum, average, p95, and maximum describe different parts of the selected history and are calculated independently per Pod UID. Difference arithmetic uses the same displayed p95 and request.",
+          "description": "p95 and maximum are calculated independently for each Pod UID over the selected time window.",
           "fieldConfig": {
             "defaults": {
               "custom": {
@@ -1261,30 +1091,6 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "CPU minimum"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "short"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "CPU average"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "short"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
                   "options": "CPU p95"
                 },
                 "properties": [
@@ -1305,50 +1111,14 @@
                     "value": "short"
                   }
                 ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Request minus p95"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "short"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Difference ratio"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "percentunit"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "CPU max as % of limit"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "percentunit"
-                  }
-                ]
               }
             ]
           },
           "gridPos": {
-            "h": 9,
+            "h": 8,
             "w": 24,
             "x": 0,
-            "y": 29
+            "y": 24
           },
           "id": 22,
           "options": {
@@ -1371,36 +1141,12 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "min_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "CPU minimum",
-              "range": false,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "avg_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "CPU average",
-              "range": false,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
               "expr": "quantile_over_time(0.95, resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
               "format": "table",
               "instant": true,
               "legendFormat": "CPU p95",
               "range": false,
-              "refId": "C"
+              "refId": "A"
             },
             {
               "datasource": {
@@ -1412,46 +1158,10 @@
               "instant": true,
               "legendFormat": "CPU maximum",
               "range": false,
-              "refId": "D"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "(last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) - quantile_over_time(0.95, resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) and on (cluster, namespace, pod, uid, container) (last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) > 0)",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "Request minus p95",
-              "range": false,
-              "refId": "E"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "((last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) - quantile_over_time(0.95, resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) / last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) and on (cluster, namespace, pod, uid, container) (last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) > 0)",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "Difference ratio",
-              "range": false,
-              "refId": "F"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "(max_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) / (last_over_time(resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) and on (cluster, namespace, pod, uid, container) (last_over_time(resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) > 0)",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "CPU max as % of limit",
-              "range": false,
-              "refId": "G"
+              "refId": "B"
             }
           ],
-          "title": "CPU distribution by Pod execution",
+          "title": "p95 and maximum CPU usage",
           "transformations": [
             {
               "id": "merge",
@@ -1501,13 +1211,411 @@
 
                 },
                 "renameByName": {
-                  "Value #A": "CPU minimum",
-                  "Value #B": "CPU average",
-                  "Value #C": "CPU p95",
-                  "Value #D": "CPU maximum",
-                  "Value #E": "Request minus p95",
-                  "Value #F": "Difference ratio",
-                  "Value #G": "CPU max as % of limit",
+                  "Value #A": "CPU p95",
+                  "Value #B": "CPU maximum",
+                  "cluster": "Cluster",
+                  "container": "Container",
+                  "image": "Image",
+                  "image_id": "Image ID",
+                  "namespace": "Namespace",
+                  "node": "Node",
+                  "pod": "Pod",
+                  "qos_class": "QoS class",
+                  "reason": "Reason",
+                  "revision": "Revision",
+                  "revision_source": "Revision source",
+                  "uid": "Pod UID",
+                  "warning": "Warning",
+                  "workload": "Workload",
+                  "workload_type": "Workload kind"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Request and limit lines retain Pod UID and revision identity. Request is dashed orange; limit is dashed red.",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "opacity",
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "showPoints": "never",
+                "spanNulls": false
+              },
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "dash": [
+                        10,
+                        10
+                      ],
+                      "fill": "dash"
+                    }
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 2
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "orange",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "dash": [
+                        10,
+                        10
+                      ],
+                      "fill": "dash"
+                    }
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 2
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "red",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 32
+          },
+          "id": 26,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "v13.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "format": "time_series",
+              "instant": false,
+              "legendFormat": "{{pod}} / {{container}} request",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "format": "time_series",
+              "instant": false,
+              "legendFormat": "{{pod}} / {{container}} limit",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "CPU request and limit",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "The table subtracts the displayed p95 from the configured request for each Pod UID. The ratio is omitted when the request is missing or zero.",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "inspect": false
+              },
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Pod"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 220
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Open the Kubernetes mixin Pod dashboard",
+                        "url": "/d/6581e46e4e5c7ba40a07646395ef7b23?${datasource:queryparam}&var-namespace=$namespace&var-pod=${__data.fields.Pod}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Node"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 180
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Open the Kubernetes mixin Node dashboard",
+                        "url": "/d/200ac8fdbfbb74b39aff88118e4d1c2c?${datasource:queryparam}&var-node=${__data.fields.Node}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Workload"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 200
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Open the Kubernetes mixin Workload dashboard",
+                        "url": "/d/a164a7f0339f99e89cea5cb47e9be617?${datasource:queryparam}&var-namespace=$namespace&var-type=${__data.fields.Workload kind}&var-workload=${__data.fields.Workload}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Container"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 150
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Revision"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 220
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Warning"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 280
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Request minus p95"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Difference ratio"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percentunit"
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 40
+          },
+          "id": 27,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": [
+
+            ]
+          },
+          "pluginVersion": "v13.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "(last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) - quantile_over_time(0.95, resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) and on (cluster, namespace, pod, uid, container) (last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) > 0)",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "Request minus p95",
+              "range": false,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "((last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) - quantile_over_time(0.95, resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) / last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) and on (cluster, namespace, pod, uid, container) (last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) > 0)",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "Difference ratio",
+              "range": false,
+              "refId": "B"
+            }
+          ],
+          "title": "Difference between the request and p95 usage",
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {
+
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "Time 1": true,
+                  "Time 10": true,
+                  "Time 11": true,
+                  "Time 12": true,
+                  "Time 13": true,
+                  "Time 14": true,
+                  "Time 15": true,
+                  "Time 16": true,
+                  "Time 17": true,
+                  "Time 18": true,
+                  "Time 19": true,
+                  "Time 2": true,
+                  "Time 20": true,
+                  "Time 21": true,
+                  "Time 22": true,
+                  "Time 23": true,
+                  "Time 24": true,
+                  "Time 3": true,
+                  "Time 4": true,
+                  "Time 5": true,
+                  "Time 6": true,
+                  "Time 7": true,
+                  "Time 8": true,
+                  "Time 9": true,
+                  "cluster": true,
+                  "image": true,
+                  "image_id": true,
+                  "namespace": true,
+                  "revision_source": true,
+                  "uid": true,
+                  "workload": true,
+                  "workload_type": true
+                },
+                "indexByName": {
+
+                },
+                "renameByName": {
+                  "Value #A": "Request minus p95",
+                  "Value #B": "Difference ratio",
                   "cluster": "Cluster",
                   "container": "Container",
                   "image": "Image",
@@ -1576,9 +1684,9 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 12,
+            "w": 24,
             "x": 0,
-            "y": 38
+            "y": 48
           },
           "id": 23,
           "options": {
@@ -1611,7 +1719,7 @@
               "refId": "A"
             }
           ],
-          "title": "CPU throttled-period ratio",
+          "title": "CPU throttled-period percentage",
           "type": "timeseries"
         },
         {
@@ -1639,9 +1747,9 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 38
+            "w": 24,
+            "x": 0,
+            "y": 56
           },
           "id": 24,
           "options": {
@@ -1674,7 +1782,7 @@
               "refId": "A"
             }
           ],
-          "title": "CPU throttled time rate",
+          "title": "CPU throttled time",
           "type": "timeseries"
         },
         {
@@ -1704,7 +1812,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 46
+            "y": 64
           },
           "id": 25,
           "options": {
@@ -1737,7 +1845,7 @@
               "refId": "A"
             }
           ],
-          "title": "CPU pressure (optional PSI)",
+          "title": "CPU pressure when PSI metrics exist",
           "type": "timeseries"
         }
       ],

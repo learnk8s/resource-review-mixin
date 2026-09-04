@@ -184,6 +184,7 @@ run_or_fail \
   'Inspect the monitoring namespace and Helm release, then retry.' \
   "$HELM" upgrade --install kube-prometheus-stack \
   "$chart_archive" \
+  --values "$ROOT_DIR/kube-prometheus-stack-values.yaml" \
   --namespace monitoring \
   --create-namespace \
   --wait \

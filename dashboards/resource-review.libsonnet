@@ -36,7 +36,6 @@ function(config)
   local currentContextLabels = summaryLabels;
 
   local last(metric) = 'last_over_time(%s[$__range])' % metric;
-  local minimum(metric) = 'min_over_time(%s[$__range])' % metric;
   local average(metric) = 'avg_over_time(%s[$__range])' % metric;
   local maximum(metric) = 'max_over_time(%s[$__range])' % metric;
   local p95(metric) = 'quantile_over_time(0.95, %s[$__range])' % metric;
@@ -609,41 +608,37 @@ function(config)
     ]),
 
     row(20, 'CPU Evidence', 14, true, [
-      bargauge(61, 'Peak CPU as % of limit', 'Highest sampled five-minute CPU usage in the selected time window as a percentage of the configured limit for each Pod and container. Omitted when no limit is configured. This is evidence about the configured ceiling, not a sizing recommendation.', grid(0, 15, 24, 5), [
-        target('A', '(' + maximum(cpuUsage) + ') / (' + last(cpuLimit) + ') and on (' + matchLabels + ') (' + last(cpuLimit) + ' > 0)', '{{pod}} / {{container}}', true),
-      ]),
-      timeSeries(21, 'CPU usage, request, and limit', 'CPU usage is a five-minute rate in cores. Request and limit lines retain Pod UID and revision identity. Request is dashed orange; limit is dashed red.', grid(0, 20, 24, 9), [
+      timeSeries(21, 'CPU usage over time', 'CPU usage is a five-minute rate in cores. Each line keeps the Pod UID and revision identity.', grid(0, 15, 24, 9), [
         target('A', cpuUsage, '{{pod}} / {{container}} usage'),
-        target('B', cpuRequest, '{{pod}} / {{container}} request'),
-        target('C', cpuLimit, '{{pod}} / {{container}} limit'),
-      ], overrides=[dashedOverride('B', 'orange'), dashedOverride('C', 'red')]),
-      table(22, 'CPU distribution by Pod execution', 'Minimum, average, p95, and maximum describe different parts of the selected history and are calculated independently per Pod UID. Difference arithmetic uses the same displayed p95 and request.', grid(0, 29, 24, 9), [
-        target('A', minimum(cpuUsage), 'CPU minimum', true, 'table'),
-        target('B', average(cpuUsage), 'CPU average', true, 'table'),
-        target('C', p95(cpuUsage), 'CPU p95', true, 'table'),
-        target('D', maximum(cpuUsage), 'CPU maximum', true, 'table'),
-        target('E', '(' + last(cpuRequest) + ' - ' + p95(cpuUsage) + ') and on (' + matchLabels + ') (' + last(cpuRequest) + ' > 0)', 'Request minus p95', true, 'table'),
-        target('F', '((' + last(cpuRequest) + ' - ' + p95(cpuUsage) + ') / ' + last(cpuRequest) + ') and on (' + matchLabels + ') (' + last(cpuRequest) + ' > 0)', 'Difference ratio', true, 'table'),
-        target('G', '(' + maximum(cpuUsage) + ') / (' + last(cpuLimit) + ') and on (' + matchLabels + ') (' + last(cpuLimit) + ' > 0)', 'CPU max as % of limit', true, 'table'),
+      ]),
+      table(22, 'p95 and maximum CPU usage', 'p95 and maximum are calculated independently for each Pod UID over the selected time window.', grid(0, 24, 24, 8), [
+        target('A', p95(cpuUsage), 'CPU p95', true, 'table'),
+        target('B', maximum(cpuUsage), 'CPU maximum', true, 'table'),
       ], [
-        { ref: 'A', name: 'CPU minimum', unit: 'short' },
-        { ref: 'B', name: 'CPU average', unit: 'short' },
-        { ref: 'C', name: 'CPU p95', unit: 'short' },
-        { ref: 'D', name: 'CPU maximum', unit: 'short' },
-        { ref: 'E', name: 'Request minus p95', unit: 'short' },
-        { ref: 'F', name: 'Difference ratio', unit: 'percentunit' },
-        { ref: 'G', name: 'CPU max as % of limit', unit: 'percentunit' },
+        { ref: 'A', name: 'CPU p95', unit: 'short' },
+        { ref: 'B', name: 'CPU maximum', unit: 'short' },
       ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
-      timeSeries(23, 'CPU throttled-period ratio', 'Share of CPU quota periods containing throttling. It proves quota enforcement, not application impact. The threshold is a visual highlight, not a verdict.', grid(0, 38, 12, 8), [
+      timeSeries(26, 'CPU request and limit', 'Request and limit lines retain Pod UID and revision identity. Request is dashed orange; limit is dashed red.', grid(0, 32, 24, 8), [
+        target('A', cpuRequest, '{{pod}} / {{container}} request'),
+        target('B', cpuLimit, '{{pod}} / {{container}} limit'),
+      ], overrides=[dashedOverride('A', 'orange'), dashedOverride('B', 'red')]),
+      table(27, 'Difference between the request and p95 usage', 'The table subtracts the displayed p95 from the configured request for each Pod UID. The ratio is omitted when the request is missing or zero.', grid(0, 40, 24, 8), [
+        target('A', '(' + last(cpuRequest) + ' - ' + p95(cpuUsage) + ') and on (' + matchLabels + ') (' + last(cpuRequest) + ' > 0)', 'Request minus p95', true, 'table'),
+        target('B', '((' + last(cpuRequest) + ' - ' + p95(cpuUsage) + ') / ' + last(cpuRequest) + ') and on (' + matchLabels + ') (' + last(cpuRequest) + ' > 0)', 'Difference ratio', true, 'table'),
+      ], [
+        { ref: 'A', name: 'Request minus p95', unit: 'short' },
+        { ref: 'B', name: 'Difference ratio', unit: 'percentunit' },
+      ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
+      timeSeries(23, 'CPU throttled-period percentage', 'Share of CPU quota periods containing throttling. It proves quota enforcement, not application impact. The threshold is a visual highlight, not a verdict.', grid(0, 48, 24, 8), [
         target('A', cpuThrottled, '{{pod}} / {{container}}'),
       ], 'percentunit', thresholds=[
         { color: 'green', value: null },
         { color: 'red', value: config.cpuThrottledWarningRatio },
       ]),
-      timeSeries(24, 'CPU throttled time rate', 'Seconds of throttled task time per wall-clock second. Parallel tasks can make this value exceed one.', grid(12, 38, 12, 8), [
+      timeSeries(24, 'CPU throttled time', 'Seconds of throttled task time per wall-clock second. Parallel tasks can make this value exceed one.', grid(0, 56, 24, 8), [
         target('A', cpuThrottledTime, '{{pod}} / {{container}}'),
       ], 's'),
-      timeSeries(25, 'CPU pressure (optional PSI)', 'Fraction of time with at least one runnable task waiting for CPU. No data means unavailable, not zero; PSI does not identify whether quota or node contention caused the wait.', grid(0, 46, 24, 8), [
+      timeSeries(25, 'CPU pressure when PSI metrics exist', 'Fraction of time with at least one runnable task waiting for CPU. No data means unavailable, not zero; PSI does not identify whether quota or node contention caused the wait.', grid(0, 64, 24, 8), [
         target('A', cpuPressure, '{{pod}} / {{node}} / {{container}}'),
       ], 'percentunit'),
     ]),
