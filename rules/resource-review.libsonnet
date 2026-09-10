@@ -447,8 +447,18 @@ function(config)
           {
             record: 'resource_review:container_last_termination_oomkilled',
             expr: joinKsmIdentity(|||
-              max by (%(clusterLabel)s, namespace, pod, uid, container) (
-                kube_pod_container_status_last_terminated_reason{%(kubeStateMetricsSelector)s, reason="OOMKilled"} == 1
+              (
+                (
+                  max by (%(clusterLabel)s, namespace, pod, uid, container) (
+                    kube_pod_container_status_last_terminated_reason{%(kubeStateMetricsSelector)s, reason="OOMKilled"} == 1
+                  )
+                )
+                or on (%(clusterLabel)s, namespace, pod, uid, container)
+                (
+                  0 * max by (%(clusterLabel)s, namespace, pod, uid, container) (
+                    kube_pod_container_status_last_terminated_reason{%(kubeStateMetricsSelector)s}
+                  )
+                )
               )
             ||| % config),
           },

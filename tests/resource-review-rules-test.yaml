@@ -359,6 +359,11 @@ tests:
         exp_samples:
           - labels: 'resource_review:container_last_terminated_reason{namespace="default",workload_type="pod",workload="shell",revision="shell-uid",revision_source="pod_uid",pod="shell",uid="shell-uid",node="node-a",container="shell",image="busybox:1.36",image_id="sha256:busybox",reason="Error"}'
             value: 1
+      - expr: resource_review:container_last_termination_oomkilled
+        eval_time: 5m
+        exp_samples:
+          - labels: 'resource_review:container_last_termination_oomkilled{namespace="default",workload_type="pod",workload="shell",revision="shell-uid",revision_source="pod_uid",pod="shell",uid="shell-uid",node="node-a",container="shell",image="busybox:1.36",image_id="sha256:busybox"}'
+            value: 0
       - expr: resource_review:container_last_terminated_exit_code
         eval_time: 5m
         exp_samples:

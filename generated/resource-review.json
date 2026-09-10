@@ -1867,88 +1867,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Highest sampled total memory in the selected time window as a percentage of the configured limit for each Pod and container. Omitted when no limit is configured. This does not explain the cause of a large percentage.",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "color": "orange",
-                      "text": "No limit or evidence"
-                    }
-                  },
-                  "type": "special"
-                }
-              ],
-              "max": 1,
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 0.8
-                  }
-                ]
-              },
-              "unit": "percentunit"
-            },
-            "overrides": [
-
-            ]
-          },
-          "gridPos": {
-            "h": 5,
-            "w": 24,
-            "x": 0,
-            "y": 16
-          },
-          "id": 62,
-          "options": {
-            "displayMode": "gradient",
-            "orientation": "horizontal",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showUnfilled": true
-          },
-          "pluginVersion": "v13.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "(max_over_time(resource_review:container_memory_usage_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) / (last_over_time(resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) and on (cluster, namespace, pod, uid, container) (last_over_time(resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) > 0)",
-              "format": "time_series",
-              "instant": true,
-              "legendFormat": "{{pod}} / {{container}}",
-              "range": false,
-              "refId": "A"
-            }
-          ],
-          "title": "Peak memory as % of limit",
-          "type": "bargauge"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "Total is memory charged to the cgroup. Working set subtracts inactive file cache and is not equivalent to application memory. Request is dashed orange; limit is dashed red.",
+          "description": "Memory currently charged to the container cgroup. This includes more than application heap and can include file cache and kernel-accounted memory.",
           "fieldConfig": {
             "defaults": {
               "custom": {
@@ -1963,79 +1882,14 @@
               "unit": "bytes"
             },
             "overrides": [
-              {
-                "matcher": {
-                  "id": "byFrameRefID",
-                  "options": "C"
-                },
-                "properties": [
-                  {
-                    "id": "custom.lineStyle",
-                    "value": {
-                      "dash": [
-                        10,
-                        10
-                      ],
-                      "fill": "dash"
-                    }
-                  },
-                  {
-                    "id": "custom.fillOpacity",
-                    "value": 0
-                  },
-                  {
-                    "id": "custom.lineWidth",
-                    "value": 2
-                  },
-                  {
-                    "id": "color",
-                    "value": {
-                      "fixedColor": "orange",
-                      "mode": "fixed"
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byFrameRefID",
-                  "options": "D"
-                },
-                "properties": [
-                  {
-                    "id": "custom.lineStyle",
-                    "value": {
-                      "dash": [
-                        10,
-                        10
-                      ],
-                      "fill": "dash"
-                    }
-                  },
-                  {
-                    "id": "custom.fillOpacity",
-                    "value": 0
-                  },
-                  {
-                    "id": "custom.lineWidth",
-                    "value": 2
-                  },
-                  {
-                    "id": "color",
-                    "value": {
-                      "fixedColor": "red",
-                      "mode": "fixed"
-                    }
-                  }
-                ]
-              }
+
             ]
           },
           "gridPos": {
             "h": 9,
             "w": 24,
             "x": 0,
-            "y": 21
+            "y": 16
           },
           "id": 31,
           "options": {
@@ -2066,7 +1920,58 @@
               "legendFormat": "{{pod}} / {{container}} total",
               "range": true,
               "refId": "A"
+            }
+          ],
+          "title": "Total container memory",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Total container memory minus inactive file cache. This is not the same as application memory or memory that Linux can never reclaim.",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "opacity",
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "showPoints": "never",
+                "spanNulls": false
+              },
+              "unit": "bytes"
             },
+            "overrides": [
+
+            ]
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 24,
+            "x": 0,
+            "y": 25
+          },
+          "id": 32,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "v13.0.0",
+          "targets": [
             {
               "datasource": {
                 "type": "prometheus",
@@ -2078,33 +1983,9 @@
               "legendFormat": "{{pod}} / {{container}} working set",
               "range": true,
               "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
-              "format": "time_series",
-              "instant": false,
-              "legendFormat": "{{pod}} / {{container}} request",
-              "range": true,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
-              "format": "time_series",
-              "instant": false,
-              "legendFormat": "{{pod}} / {{container}} limit",
-              "range": true,
-              "refId": "D"
             }
           ],
-          "title": "Total and working-set memory",
+          "title": "Working-set memory",
           "type": "timeseries"
         },
         {
@@ -2112,7 +1993,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "RSS primarily reflects resident anonymous memory; cache reflects file content retained for reuse. They do not partition every charged byte.",
+          "description": "RSS primarily reflects resident anonymous memory; cache reflects file content retained for reuse. They do not account for every byte in total container memory.",
           "fieldConfig": {
             "defaults": {
               "custom": {
@@ -2134,9 +2015,9 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 30
+            "y": 34
           },
-          "id": 32,
+          "id": 33,
           "options": {
             "legend": {
               "calcs": [
@@ -2187,7 +2068,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Average and maximum remain per Pod UID. Peaks between scrapes can still be missed. The limit ratio uses total memory because the cgroup limit applies to total charged usage.",
+          "description": "The highest sampled total, working-set, RSS, and cache values are calculated separately for each Pod UID over the selected time period.",
           "fieldConfig": {
             "defaults": {
               "custom": {
@@ -2302,31 +2183,7 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Total average"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "bytes"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
                   "options": "Total maximum"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "bytes"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Working-set average"
                 },
                 "properties": [
                   {
@@ -2370,18 +2227,6 @@
                     "value": "bytes"
                   }
                 ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Memory max as % of limit"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "percentunit"
-                  }
-                ]
               }
             ]
           },
@@ -2389,9 +2234,9 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 38
+            "y": 42
           },
-          "id": 33,
+          "id": 34,
           "options": {
             "cellHeight": "sm",
             "footer": {
@@ -2412,36 +2257,12 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "avg_over_time(resource_review:container_memory_usage_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "Total average",
-              "range": false,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
               "expr": "max_over_time(resource_review:container_memory_usage_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
               "format": "table",
               "instant": true,
               "legendFormat": "Total maximum",
               "range": false,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "avg_over_time(resource_review:container_memory_working_set_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "Working-set average",
-              "range": false,
-              "refId": "C"
+              "refId": "A"
             },
             {
               "datasource": {
@@ -2453,7 +2274,7 @@
               "instant": true,
               "legendFormat": "Working-set maximum",
               "range": false,
-              "refId": "D"
+              "refId": "B"
             },
             {
               "datasource": {
@@ -2465,7 +2286,7 @@
               "instant": true,
               "legendFormat": "RSS maximum",
               "range": false,
-              "refId": "E"
+              "refId": "C"
             },
             {
               "datasource": {
@@ -2477,22 +2298,10 @@
               "instant": true,
               "legendFormat": "Cache maximum",
               "range": false,
-              "refId": "F"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "(max_over_time(resource_review:container_memory_usage_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) / (last_over_time(resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) and on (cluster, namespace, pod, uid, container) (last_over_time(resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) > 0)",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "Memory max as % of limit",
-              "range": false,
-              "refId": "G"
+              "refId": "D"
             }
           ],
-          "title": "Memory distribution by Pod execution",
+          "title": "Maximum values for the selected period",
           "transformations": [
             {
               "id": "merge",
@@ -2542,13 +2351,10 @@
 
                 },
                 "renameByName": {
-                  "Value #A": "Total average",
-                  "Value #B": "Total maximum",
-                  "Value #C": "Working-set average",
-                  "Value #D": "Working-set maximum",
-                  "Value #E": "RSS maximum",
-                  "Value #F": "Cache maximum",
-                  "Value #G": "Memory max as % of limit",
+                  "Value #A": "Total maximum",
+                  "Value #B": "Working-set maximum",
+                  "Value #C": "RSS maximum",
+                  "Value #D": "Cache maximum",
                   "cluster": "Cluster",
                   "container": "Container",
                   "image": "Image",
@@ -2575,7 +2381,147 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Fraction of time tasks could not make progress while the kernel reclaimed memory. No data means unavailable, not zero.",
+          "description": "The request is used when Kubernetes schedules the Pod. The limit is the cgroup ceiling. Request is dashed orange; limit is dashed red.",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "opacity",
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "showPoints": "never",
+                "spanNulls": false
+              },
+              "unit": "bytes"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "dash": [
+                        10,
+                        10
+                      ],
+                      "fill": "dash"
+                    }
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 2
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "orange",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "dash": [
+                        10,
+                        10
+                      ],
+                      "fill": "dash"
+                    }
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 2
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "red",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 50
+          },
+          "id": 35,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "v13.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "format": "time_series",
+              "instant": false,
+              "legendFormat": "{{pod}} / {{container}} request",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "format": "time_series",
+              "instant": false,
+              "legendFormat": "{{pod}} / {{container}} limit",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Memory request and limit",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Fraction of time tasks could not make progress while Linux tried to reclaim memory. No data means unavailable, not zero.",
           "fieldConfig": {
             "defaults": {
               "custom": {
@@ -2597,9 +2543,9 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 46
+            "y": 58
           },
-          "id": 34,
+          "id": 36,
           "options": {
             "legend": {
               "calcs": [
@@ -2630,7 +2576,7 @@
               "refId": "A"
             }
           ],
-          "title": "Memory pressure (optional PSI)",
+          "title": "Memory pressure when PSI metrics exist",
           "type": "timeseries"
         },
         {
@@ -2638,7 +2584,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Counters were enriched with revision, Pod UID, node, and image at recording time; reused Pod names cannot inherit old evidence. Termination reason and exit code cover every cause, not only OOM.",
+          "description": "New out-of-memory events reported by cAdvisor during the selected time period. Each row keeps the Pod UID and revision that produced the counter.",
           "fieldConfig": {
             "defaults": {
               "custom": {
@@ -2761,52 +2707,16 @@
                     "value": "short"
                   }
                 ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "OOMKilled seen"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "bool"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Restarts"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "short"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Last exit code"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "short"
-                  }
-                ]
               }
             ]
           },
           "gridPos": {
-            "h": 9,
+            "h": 8,
             "w": 24,
             "x": 0,
-            "y": 54
+            "y": 66
           },
-          "id": 35,
+          "id": 37,
           "options": {
             "cellHeight": "sm",
             "footer": {
@@ -2833,57 +2743,9 @@
               "legendFormat": "cAdvisor OOM events",
               "range": false,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "max_over_time(resource_review:container_last_termination_oomkilled{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "OOMKilled last-state seen",
-              "range": false,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "increase(resource_review:container_restarts_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "Restarts",
-              "range": false,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "last_over_time(resource_review:container_last_terminated_reason{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "Last terminated reason",
-              "range": false,
-              "refId": "D"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "expr": "last_over_time(resource_review:container_last_terminated_exit_code{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "Last exit code",
-              "range": false,
-              "refId": "E"
             }
           ],
-          "title": "OOM and restart evidence",
+          "title": "cAdvisor OOM events",
           "transformations": [
             {
               "id": "merge",
@@ -2920,7 +2782,6 @@
                   "Time 7": true,
                   "Time 8": true,
                   "Time 9": true,
-                  "Value #D": true,
                   "cluster": true,
                   "image": true,
                   "image_id": true,
@@ -2934,10 +2795,486 @@
 
                 },
                 "renameByName": {
+                  "Value": "OOM events",
                   "Value #A": "OOM events",
-                  "Value #B": "OOMKilled seen",
-                  "Value #C": "Restarts",
-                  "Value #E": "Last exit code",
+                  "cluster": "Cluster",
+                  "container": "Container",
+                  "image": "Image",
+                  "image_id": "Image ID",
+                  "namespace": "Namespace",
+                  "node": "Node",
+                  "pod": "Pod",
+                  "qos_class": "QoS class",
+                  "reason": "Reason",
+                  "revision": "Revision",
+                  "revision_source": "Revision source",
+                  "uid": "Pod UID",
+                  "warning": "Warning",
+                  "workload": "Workload",
+                  "workload_type": "Workload kind"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Whether OOMKilled was seen as the last termination reason during the selected time period. A newer termination reason can replace it, so this is not a count of every OOM kill.",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "inspect": false
+              },
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Pod"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 220
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Open the Kubernetes mixin Pod dashboard",
+                        "url": "/d/6581e46e4e5c7ba40a07646395ef7b23?${datasource:queryparam}&var-namespace=$namespace&var-pod=${__data.fields.Pod}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Node"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 180
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Open the Kubernetes mixin Node dashboard",
+                        "url": "/d/200ac8fdbfbb74b39aff88118e4d1c2c?${datasource:queryparam}&var-node=${__data.fields.Node}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Workload"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 200
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Open the Kubernetes mixin Workload dashboard",
+                        "url": "/d/a164a7f0339f99e89cea5cb47e9be617?${datasource:queryparam}&var-namespace=$namespace&var-type=${__data.fields.Workload kind}&var-workload=${__data.fields.Workload}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Container"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 150
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Revision"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 220
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Warning"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 280
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "OOMKilled"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bool"
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 74
+          },
+          "id": 38,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": [
+
+            ]
+          },
+          "pluginVersion": "v13.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "max_over_time(resource_review:container_last_termination_oomkilled{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "OOMKilled",
+              "range": false,
+              "refId": "A"
+            }
+          ],
+          "title": "Kubernetes OOMKilled state",
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {
+
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "Time 1": true,
+                  "Time 10": true,
+                  "Time 11": true,
+                  "Time 12": true,
+                  "Time 13": true,
+                  "Time 14": true,
+                  "Time 15": true,
+                  "Time 16": true,
+                  "Time 17": true,
+                  "Time 18": true,
+                  "Time 19": true,
+                  "Time 2": true,
+                  "Time 20": true,
+                  "Time 21": true,
+                  "Time 22": true,
+                  "Time 23": true,
+                  "Time 24": true,
+                  "Time 3": true,
+                  "Time 4": true,
+                  "Time 5": true,
+                  "Time 6": true,
+                  "Time 7": true,
+                  "Time 8": true,
+                  "Time 9": true,
+                  "cluster": true,
+                  "image": true,
+                  "image_id": true,
+                  "namespace": true,
+                  "revision_source": true,
+                  "uid": true,
+                  "workload": true,
+                  "workload_type": true
+                },
+                "indexByName": {
+
+                },
+                "renameByName": {
+                  "Value": "OOMKilled",
+                  "Value #A": "OOMKilled",
+                  "cluster": "Cluster",
+                  "container": "Container",
+                  "image": "Image",
+                  "image_id": "Image ID",
+                  "namespace": "Namespace",
+                  "node": "Node",
+                  "pod": "Pod",
+                  "qos_class": "QoS class",
+                  "reason": "Reason",
+                  "revision": "Revision",
+                  "revision_source": "Revision source",
+                  "uid": "Pod UID",
+                  "warning": "Warning",
+                  "workload": "Workload",
+                  "workload_type": "Workload kind"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "How many times each container restarted during the selected time period. This count does not say why the restart happened.",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "inspect": false
+              },
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Pod"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 220
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Open the Kubernetes mixin Pod dashboard",
+                        "url": "/d/6581e46e4e5c7ba40a07646395ef7b23?${datasource:queryparam}&var-namespace=$namespace&var-pod=${__data.fields.Pod}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Node"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 180
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Open the Kubernetes mixin Node dashboard",
+                        "url": "/d/200ac8fdbfbb74b39aff88118e4d1c2c?${datasource:queryparam}&var-node=${__data.fields.Node}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Workload"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 200
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Open the Kubernetes mixin Workload dashboard",
+                        "url": "/d/a164a7f0339f99e89cea5cb47e9be617?${datasource:queryparam}&var-namespace=$namespace&var-type=${__data.fields.Workload kind}&var-workload=${__data.fields.Workload}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Container"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 150
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Revision"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 220
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Warning"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 280
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Restarts"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 82
+          },
+          "id": 39,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": [
+
+            ]
+          },
+          "pluginVersion": "v13.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "increase(resource_review:container_restarts_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "Restarts",
+              "range": false,
+              "refId": "A"
+            }
+          ],
+          "title": "Container restarts",
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {
+
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "Time 1": true,
+                  "Time 10": true,
+                  "Time 11": true,
+                  "Time 12": true,
+                  "Time 13": true,
+                  "Time 14": true,
+                  "Time 15": true,
+                  "Time 16": true,
+                  "Time 17": true,
+                  "Time 18": true,
+                  "Time 19": true,
+                  "Time 2": true,
+                  "Time 20": true,
+                  "Time 21": true,
+                  "Time 22": true,
+                  "Time 23": true,
+                  "Time 24": true,
+                  "Time 3": true,
+                  "Time 4": true,
+                  "Time 5": true,
+                  "Time 6": true,
+                  "Time 7": true,
+                  "Time 8": true,
+                  "Time 9": true,
+                  "cluster": true,
+                  "image": true,
+                  "image_id": true,
+                  "namespace": true,
+                  "revision_source": true,
+                  "uid": true,
+                  "workload": true,
+                  "workload_type": true
+                },
+                "indexByName": {
+
+                },
+                "renameByName": {
+                  "Value": "Restarts",
+                  "Value #A": "Restarts",
                   "cluster": "Cluster",
                   "container": "Container",
                   "image": "Image",
