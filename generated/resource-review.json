@@ -1739,7 +1739,7 @@
                 "showPoints": "never",
                 "spanNulls": false
               },
-              "unit": "s"
+              "unit": "short"
             },
             "overrides": [
 
@@ -3320,7 +3320,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Average, p95, and maximum are calculated independently for every immutable Pod execution. History and coverage keep short-lived or poorly observed replicas visible.",
+      "description": "Each row keeps one Pod and node visible. Average, p95, maximum, throttling, pressure, history, and coverage are calculated for that Pod UID before any workload-level summary.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -3435,7 +3435,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Avg CPU"
+              "options": "Average CPU"
             },
             "properties": [
               {
@@ -3444,7 +3444,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 90
+                "value": 100
               }
             ]
           },
@@ -3467,7 +3467,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Max CPU"
+              "options": "Maximum CPU"
             },
             "properties": [
               {
@@ -3476,14 +3476,14 @@
               },
               {
                 "id": "custom.width",
-                "value": 90
+                "value": 105
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Max throttling"
+              "options": "Maximum throttled-period percentage"
             },
             "properties": [
               {
@@ -3492,30 +3492,30 @@
               },
               {
                 "id": "custom.width",
-                "value": 110
+                "value": 170
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Max throttled time"
+              "options": "Maximum throttled-time rate"
             },
             "properties": [
               {
                 "id": "unit",
-                "value": "s"
+                "value": "short"
               },
               {
                 "id": "custom.width",
-                "value": 125
+                "value": 155
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Max CPU pressure"
+              "options": "Maximum CPU pressure"
             },
             "properties": [
               {
@@ -3524,7 +3524,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 120
+                "value": 135
               }
             ]
           },
@@ -3592,7 +3592,7 @@
           "expr": "avg_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
           "format": "table",
           "instant": true,
-          "legendFormat": "Avg CPU",
+          "legendFormat": "Average CPU",
           "range": false,
           "refId": "A"
         },
@@ -3616,7 +3616,7 @@
           "expr": "max_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
           "format": "table",
           "instant": true,
-          "legendFormat": "Max CPU",
+          "legendFormat": "Maximum CPU",
           "range": false,
           "refId": "C"
         },
@@ -3628,7 +3628,7 @@
           "expr": "max_over_time(resource_review:container_cpu_throttled_periods:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
           "format": "table",
           "instant": true,
-          "legendFormat": "Max throttling",
+          "legendFormat": "Maximum throttled-period percentage",
           "range": false,
           "refId": "D"
         },
@@ -3640,7 +3640,7 @@
           "expr": "max_over_time(resource_review:container_cpu_throttled_seconds:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
           "format": "table",
           "instant": true,
-          "legendFormat": "Max throttled time",
+          "legendFormat": "Maximum throttled-time rate",
           "range": false,
           "refId": "E"
         },
@@ -3652,7 +3652,7 @@
           "expr": "max_over_time(resource_review:container_cpu_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
           "format": "table",
           "instant": true,
-          "legendFormat": "Max CPU pressure",
+          "legendFormat": "Maximum CPU pressure",
           "range": false,
           "refId": "F"
         },
@@ -3681,7 +3681,7 @@
           "refId": "H"
         }
       ],
-      "title": "CPU by Pod execution",
+      "title": "CPU usage, throttling, and pressure by Pod and node",
       "transformations": [
         {
           "id": "merge",
@@ -3731,12 +3731,12 @@
 
             },
             "renameByName": {
-              "Value #A": "Avg CPU",
+              "Value #A": "Average CPU",
               "Value #B": "p95 CPU",
-              "Value #C": "Max CPU",
-              "Value #D": "Max throttling",
-              "Value #E": "Max throttled time",
-              "Value #F": "Max CPU pressure",
+              "Value #C": "Maximum CPU",
+              "Value #D": "Maximum throttled-period percentage",
+              "Value #E": "Maximum throttled-time rate",
+              "Value #F": "Maximum CPU pressure",
               "Value #G": "History",
               "Value #H": "Coverage",
               "cluster": "Cluster",
@@ -3765,7 +3765,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Average and maximum working set remain per replica. Total maximum, pressure, OOM events, and restarts are separate signals and do not identify application impact by themselves.",
+      "description": "Each row keeps one Pod and node visible. Working set, total memory, pressure, OOM events, OOMKilled state, and restarts stay separate so one replica cannot disappear inside a workload average.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -3880,7 +3880,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Avg working set"
+              "options": "Average working set"
             },
             "properties": [
               {
@@ -3889,14 +3889,14 @@
               },
               {
                 "id": "custom.width",
-                "value": 115
+                "value": 125
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Max working set"
+              "options": "Maximum working set"
             },
             "properties": [
               {
@@ -3905,14 +3905,14 @@
               },
               {
                 "id": "custom.width",
-                "value": 115
+                "value": 130
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Max total"
+              "options": "Maximum total memory"
             },
             "properties": [
               {
@@ -3921,14 +3921,14 @@
               },
               {
                 "id": "custom.width",
-                "value": 85
+                "value": 130
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Max pressure"
+              "options": "Maximum memory pressure"
             },
             "properties": [
               {
@@ -3937,14 +3937,14 @@
               },
               {
                 "id": "custom.width",
-                "value": 105
+                "value": 150
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "OOM"
+              "options": "OOM events"
             },
             "properties": [
               {
@@ -3953,7 +3953,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 65
+                "value": 85
               }
             ]
           },
@@ -4021,7 +4021,7 @@
           "expr": "avg_over_time(resource_review:container_memory_working_set_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
           "format": "table",
           "instant": true,
-          "legendFormat": "Avg working set",
+          "legendFormat": "Average working set",
           "range": false,
           "refId": "A"
         },
@@ -4033,7 +4033,7 @@
           "expr": "max_over_time(resource_review:container_memory_working_set_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
           "format": "table",
           "instant": true,
-          "legendFormat": "Max working set",
+          "legendFormat": "Maximum working set",
           "range": false,
           "refId": "B"
         },
@@ -4045,7 +4045,7 @@
           "expr": "max_over_time(resource_review:container_memory_usage_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
           "format": "table",
           "instant": true,
-          "legendFormat": "Max total",
+          "legendFormat": "Maximum total memory",
           "range": false,
           "refId": "C"
         },
@@ -4057,7 +4057,7 @@
           "expr": "max_over_time(resource_review:container_memory_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
           "format": "table",
           "instant": true,
-          "legendFormat": "Max pressure",
+          "legendFormat": "Maximum memory pressure",
           "range": false,
           "refId": "D"
         },
@@ -4069,7 +4069,7 @@
           "expr": "increase(resource_review:container_oom_events_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
           "format": "table",
           "instant": true,
-          "legendFormat": "OOM",
+          "legendFormat": "OOM events",
           "range": false,
           "refId": "E"
         },
@@ -4098,7 +4098,7 @@
           "refId": "G"
         }
       ],
-      "title": "Memory and failures by Pod execution",
+      "title": "Memory, OOM events, and restarts by Pod and node",
       "transformations": [
         {
           "id": "merge",
@@ -4148,11 +4148,11 @@
 
             },
             "renameByName": {
-              "Value #A": "Avg working set",
-              "Value #B": "Max working set",
-              "Value #C": "Max total",
-              "Value #D": "Max pressure",
-              "Value #E": "OOM",
+              "Value #A": "Average working set",
+              "Value #B": "Maximum working set",
+              "Value #C": "Maximum total memory",
+              "Value #D": "Maximum memory pressure",
+              "Value #E": "OOM events",
               "Value #F": "Restarts",
               "Value #G": "OOMKilled",
               "cluster": "Cluster",
@@ -4498,12 +4498,12 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Maximum throttled time"
+                  "options": "Maximum throttled-time rate"
                 },
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "s"
+                    "value": "short"
                   }
                 ]
               },
@@ -4779,7 +4779,7 @@
               "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max_over_time(resource_review:container_cpu_throttled_seconds:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))",
               "format": "table",
               "instant": true,
-              "legendFormat": "Maximum throttled time",
+              "legendFormat": "Maximum throttled-time rate",
               "range": false,
               "refId": "W"
             },
@@ -4891,7 +4891,7 @@
                   "Value #T": "Memory request minus maximum",
                   "Value #U": "Memory difference ratio",
                   "Value #V": "Replica count",
-                  "Value #W": "Maximum throttled time",
+                  "Value #W": "Maximum throttled-time rate",
                   "Value #X": "Maximum CPU pressure",
                   "Value #Y": "Maximum memory pressure",
                   "Value #Z": "OOMKilled",
