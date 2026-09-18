@@ -32,8 +32,12 @@ function(config)
   local oomKilled = 'max_over_time(%s[$__range])' % oomKilledMetric;
   local matchLabels = '%s, namespace, pod, uid, container' % clusterLabel;
   local revisionContainerLabels = '%s, namespace, workload_type, workload, revision, revision_source, container' % clusterLabel;
-  local summaryLabels = revisionContainerLabels + ', image, image_id';
-  local currentContextLabels = summaryLabels;
+  // The final review has exactly one row for a workload revision and
+  // container. Image identity remains on the Pod-level rules and a warning
+  // reports revisions that contain more than one immutable image.
+  local summaryLabels = revisionContainerLabels;
+  local imageLabels = revisionContainerLabels + ', image, image_id';
+  local currentContextLabels = imageLabels;
 
   local last(metric) = 'last_over_time(%s[$__range])' % metric;
   local average(metric) = 'avg_over_time(%s[$__range])' % metric;
@@ -96,10 +100,11 @@ function(config)
     warning(last(cpuRequest) + ' == 0', 'CPU request is zero; ratio omitted'),
     warning(last(memoryRequest) + ' == 0', 'Memory request is zero; ratio omitted'),
     warning('max_over_time(%s[$__range])' % fallbackIdentityMetric, 'Revision falls back to Pod UID'),
-    warning('(count by (%s) (count by (%s) (%s)) > 1) * on (%s) group_right() count by (%s) (%s)' % [revisionContainerLabels, summaryLabels, identity, revisionContainerLabels, summaryLabels, identity], 'Multiple immutable images in one revision'),
+    warning('(count by (%s) (count by (%s) (%s)) > 1) * on (%s) group_right() count by (%s) (%s)' % [revisionContainerLabels, imageLabels, identity, revisionContainerLabels, imageLabels, identity], 'Multiple immutable images in one revision'),
     warning('clamp_max(count_over_time(%s[$__range]) / ($__range_s / 60), 1) < 0.8' % cpuUsage, 'CPU sample coverage below 80%'),
   ]);
-  local summaryWarningCount = 'count by (%s) (%s) or on (%s) (0 * count by (%s) (%s))' % [
+  local summaryWarningCount = 'count by (%s) (count by (%s, warning) (%s)) or on (%s) (0 * count by (%s) (%s))' % [
+    summaryLabels,
     summaryLabels,
     warnings,
     summaryLabels,
@@ -520,48 +525,48 @@ function(config)
     ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id'], compact=true),
 
     row(50, 'Review Table', 33, true, [
-      table(51, 'Evidence by workload revision, container, and immutable image', 'One row per workload revision, container, and immutable image. It combines the last observed requests and limits with selected-window usage, distinct Pod executions, observation duration, failure signals, and missing-evidence warnings without merging evidence from different images.', grid(0, 34, 24, 13), [
-        target('A', summaryCpuRequest, 'CPU request', true, 'table'),
-        target('B', summaryCpuLimit, 'CPU limit', true, 'table'),
-        target('D', summaryCpuP95, 'Highest replica CPU p95', true, 'table'),
-        target('E', summaryCpuMax, 'Highest replica CPU maximum', true, 'table'),
-        target('F', summaryMemoryRequest, 'Memory request', true, 'table'),
-        target('G', summaryMemoryLimit, 'Memory limit', true, 'table'),
-        target('I', summaryMemoryMax, 'Highest replica memory maximum', true, 'table'),
+      table(51, 'Workload revision and container review', 'One row for each workload revision and container. The row shows current requests and limits; CPU p95 and maximum; memory maximum; absolute and percentage differences from requests; replica count; observation duration; OOM, restart, throttling, and pressure signals; and missing evidence warnings.', grid(0, 34, 24, 13), [
+        target('A', summaryCpuRequest, 'Current CPU request', true, 'table'),
+        target('B', summaryCpuLimit, 'Current CPU limit', true, 'table'),
+        target('D', summaryCpuP95, 'CPU p95', true, 'table'),
+        target('E', summaryCpuMax, 'CPU maximum', true, 'table'),
+        target('F', summaryMemoryRequest, 'Current memory request', true, 'table'),
+        target('G', summaryMemoryLimit, 'Current memory limit', true, 'table'),
+        target('I', summaryMemoryMax, 'Memory maximum', true, 'table'),
+        target('R', summaryCpuDifference, 'CPU absolute difference from request', true, 'table'),
+        target('S', '((' + summaryCpuDifference + ') / (' + summaryCpuRequest + ')) and on (' + summaryLabels + ') (' + summaryCpuRequest + ' > 0)', 'CPU percentage difference from request', true, 'table'),
+        target('T', summaryMemoryDifference, 'Memory absolute difference from request', true, 'table'),
+        target('U', '((' + summaryMemoryDifference + ') / (' + summaryMemoryRequest + ')) and on (' + summaryLabels + ') (' + summaryMemoryRequest + ' > 0)', 'Memory percentage difference from request', true, 'table'),
         target('V', 'count by (' + summaryLabels + ') (count by (' + summaryLabels + ', pod, uid) (' + identity + '))', 'Replica count', true, 'table'),
         target('K', 'min by (' + summaryLabels + ') (count_over_time(' + cpuUsage + '[$__range]) * 60)', 'Observation duration', true, 'table'),
         target('M', 'sum by (' + summaryLabels + ') (' + oomEvents + ')', 'OOM events', true, 'table'),
         target('N', 'sum by (' + summaryLabels + ') (' + restarts + ')', 'Restarts', true, 'table'),
-        target('O', summaryCpuThrottled, 'Maximum throttling', true, 'table'),
-        target('R', summaryCpuDifference, 'CPU request minus p95', true, 'table'),
-        target('S', '((' + summaryCpuDifference + ') / (' + summaryCpuRequest + ')) and on (' + summaryLabels + ') (' + summaryCpuRequest + ' > 0)', 'CPU difference ratio', true, 'table'),
-        target('T', summaryMemoryDifference, 'Memory request minus maximum', true, 'table'),
-        target('U', '((' + summaryMemoryDifference + ') / (' + summaryMemoryRequest + ')) and on (' + summaryLabels + ') (' + summaryMemoryRequest + ' > 0)', 'Memory difference ratio', true, 'table'),
-        target('W', summaryCpuThrottledTime, 'Maximum throttled-time rate', true, 'table'),
-        target('X', summaryCpuPressure, 'Maximum CPU pressure', true, 'table'),
-        target('Y', summaryMemoryPressure, 'Maximum memory pressure', true, 'table'),
+        target('O', summaryCpuThrottled, 'Throttled-period percentage', true, 'table'),
+        target('W', summaryCpuThrottledTime, 'Throttled-time rate', true, 'table'),
+        target('X', summaryCpuPressure, 'CPU pressure', true, 'table'),
+        target('Y', summaryMemoryPressure, 'Memory pressure', true, 'table'),
         target('Z', summaryOomKilled, 'OOMKilled', true, 'table'),
         target('AA', summaryWarningCount, 'Missing evidence warnings', true, 'table'),
       ], [
-        { ref: 'A', name: 'CPU request', unit: 'short' },
-        { ref: 'B', name: 'CPU limit', unit: 'short' },
-        { ref: 'D', name: 'Highest replica CPU p95', unit: 'short' },
-        { ref: 'E', name: 'Highest replica CPU maximum', unit: 'short' },
-        { ref: 'F', name: 'Memory request', unit: 'bytes' },
-        { ref: 'G', name: 'Memory limit', unit: 'bytes' },
-        { ref: 'I', name: 'Highest replica memory maximum', unit: 'bytes' },
+        { ref: 'A', name: 'Current CPU request', unit: 'short' },
+        { ref: 'B', name: 'Current CPU limit', unit: 'short' },
+        { ref: 'D', name: 'CPU p95', unit: 'short' },
+        { ref: 'E', name: 'CPU maximum', unit: 'short' },
+        { ref: 'F', name: 'Current memory request', unit: 'bytes' },
+        { ref: 'G', name: 'Current memory limit', unit: 'bytes' },
+        { ref: 'I', name: 'Memory maximum', unit: 'bytes' },
+        { ref: 'R', name: 'CPU absolute difference from request', unit: 'short' },
+        { ref: 'S', name: 'CPU percentage difference from request', unit: 'percentunit' },
+        { ref: 'T', name: 'Memory absolute difference from request', unit: 'bytes' },
+        { ref: 'U', name: 'Memory percentage difference from request', unit: 'percentunit' },
         { ref: 'V', name: 'Replica count', unit: 'short' },
         { ref: 'K', name: 'Observation duration', unit: 's' },
         { ref: 'M', name: 'OOM events', unit: 'short' },
         { ref: 'N', name: 'Restarts', unit: 'short' },
-        { ref: 'O', name: 'Maximum throttling', unit: 'percentunit' },
-        { ref: 'R', name: 'CPU request minus p95', unit: 'short' },
-        { ref: 'S', name: 'CPU difference ratio', unit: 'percentunit' },
-        { ref: 'T', name: 'Memory request minus maximum', unit: 'bytes' },
-        { ref: 'U', name: 'Memory difference ratio', unit: 'percentunit' },
-        { ref: 'W', name: 'Maximum throttled-time rate', unit: 'short' },
-        { ref: 'X', name: 'Maximum CPU pressure', unit: 'percentunit' },
-        { ref: 'Y', name: 'Maximum memory pressure', unit: 'percentunit' },
+        { ref: 'O', name: 'Throttled-period percentage', unit: 'percentunit' },
+        { ref: 'W', name: 'Throttled-time rate', unit: 'short' },
+        { ref: 'X', name: 'CPU pressure', unit: 'percentunit' },
+        { ref: 'Y', name: 'Memory pressure', unit: 'percentunit' },
         { ref: 'Z', name: 'OOMKilled', unit: 'bool' },
         { ref: 'AA', name: 'Missing evidence warnings', unit: 'short' },
       ]),

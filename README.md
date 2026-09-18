@@ -58,7 +58,7 @@ The dashboard compares each [Pod](https://kubernetes.io/docs/concepts/workloads/
 
 ### Review Table
 
-Show one row for each workload revision, container, and immutable image:
+Show one row for each workload revision and container:
 
 - Current requests and limits.
 - CPU p95 and maximum.
@@ -68,6 +68,28 @@ Show one row for each workload revision, container, and immutable image:
 - Observation duration.
 - OOM, restart, throttling, and pressure signals.
 - Missing evidence warnings.
+
+## Out of Scope
+
+- HPA.
+- Exact request or limit recommendations.
+- Kubernetes manifest changes.
+- Pull requests or automatic application.
+- Application-specific metrics.
+- Java, Node.js, Go, or Python runtime dashboards.
+- Cost calculations.
+- Workflow state, approvals, and exceptions.
+- AI analysis.
+
+## Acceptance Criteria
+
+- The mixin installs on a standard `kube-prometheus-stack` deployment.
+- Grafana loads the dashboard without manual edits.
+- All Prometheus rules pass `promtool`.
+- The dashboard works when PSI metrics are absent.
+- Queries never combine different workload revisions.
+- The dashboard does not label low usage as a safe reduction.
+- The documentation explains each metric and its limitation.
 
 ## Try it locally
 
