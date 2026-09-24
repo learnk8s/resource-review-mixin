@@ -397,7 +397,7 @@ function(config)
   + { timepicker+: { time_options: ['1h', '6h', '24h', '7d', '14d', '30d'] } }
   + g.dashboard.withLinks([
     {
-      title: 'Kubernetes Rightsizing book — review process this dashboard implements',
+      title: 'Read the Kubernetes Rightsizing guide',
       type: 'link',
       icon: 'external link',
       url: config.bookUrl,
@@ -407,14 +407,7 @@ function(config)
       title: 'Metric definitions and limitations',
       type: 'link',
       icon: 'doc',
-      url: 'https://github.com/learnk8s/resource-review-mixin/blob/main/docs/metrics.md',
-      targetBlank: true,
-    },
-    {
-      title: 'Open-source project sponsored by StormForge',
-      type: 'link',
-      icon: 'external link',
-      url: 'https://stormforge.io/',
+      url: 'https://github.com/learnk8s/resource-review-mixin/blob/master/docs/metrics.md',
       targetBlank: true,
     },
   ])

@@ -10,7 +10,7 @@
     {
       "icon": "external link",
       "targetBlank": true,
-      "title": "Kubernetes Rightsizing book — review process this dashboard implements",
+      "title": "Read the Kubernetes Rightsizing guide",
       "type": "link",
       "url": "https://learnkube.com/kubernetes-rightsizing"
     },
@@ -19,14 +19,7 @@
       "targetBlank": true,
       "title": "Metric definitions and limitations",
       "type": "link",
-      "url": "https://github.com/learnk8s/resource-review-mixin/blob/main/docs/metrics.md"
-    },
-    {
-      "icon": "external link",
-      "targetBlank": true,
-      "title": "Open-source project sponsored by StormForge",
-      "type": "link",
-      "url": "https://stormforge.io/"
+      "url": "https://github.com/learnk8s/resource-review-mixin/blob/master/docs/metrics.md"
     }
   ],
   "panels": [
