@@ -1,0 +1,43 @@
+name: integration
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/integration.yaml'
+      - 'config.libsonnet'
+      - 'dashboards/**'
+      - 'jsonnetfile.json'
+      - 'jsonnetfile.lock.json'
+      - 'lib/**'
+      - 'manifests/**'
+      - 'rules/**'
+      - 'tests/**'
+      - 'vendor/**'
+      - 'Makefile'
+      - 'mixin.libsonnet'
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        with:
+          install_only: true
+          version: v0.32.0
+
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        with:
+          version: v4.3.0
+
+      - name: Run kube-prometheus-stack integration
+        run: ./tests/integration-kind.sh

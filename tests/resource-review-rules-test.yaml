@@ -1,0 +1,432 @@
+rule_files:
+  - ../generated/prometheus-rules.yaml
+
+evaluation_interval: 1m
+
+tests:
+  - name: single cluster metrics do not require a cluster label
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_info{namespace="default",pod="shell",uid="shell-uid",node="node-a",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'kube_pod_container_info{namespace="default",pod="shell",uid="shell-uid",container="shell",image="busybox:1.36",image_id="sha256:busybox",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'container_cpu_usage_seconds_total{namespace="default",pod="shell",container="shell",image="busybox:1.36",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+6x6'
+
+    promql_expr_test:
+      - expr: resource_review:container_cpu_usage_cores:rate5m
+        eval_time: 5m
+        exp_samples:
+          - labels: 'resource_review:container_cpu_usage_cores:rate5m{namespace="default",workload_type="pod",workload="shell",revision="shell-uid",revision_source="pod_uid",pod="shell",uid="shell-uid",node="node-a",container="shell",image="busybox:1.36",image_id="sha256:busybox"}'
+            value: 0.1
+
+  - name: deployment revisions remain separate
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_owner{cluster="test",namespace="shop",pod="payments-old-a",owner_kind="ReplicaSet",owner_name="payments-old",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x12'
+      - series: 'kube_pod_owner{cluster="test",namespace="shop",pod="payments-old-b",owner_kind="ReplicaSet",owner_name="payments-old",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x12'
+      - series: 'kube_pod_owner{cluster="test",namespace="shop",pod="payments-new-a",owner_kind="ReplicaSet",owner_name="payments-new",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x12'
+      - series: 'kube_replicaset_owner{cluster="test",namespace="shop",replicaset="payments-old",owner_kind="Deployment",owner_name="payments",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x12'
+      - series: 'kube_replicaset_owner{cluster="test",namespace="shop",replicaset="payments-new",owner_kind="Deployment",owner_name="payments",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x12'
+      - series: 'kube_pod_info{cluster="test",namespace="shop",pod="payments-old-a",uid="uid-old",node="node-a",job="kube-state-metrics"}'
+        values: '1x12'
+      - series: 'kube_pod_info{cluster="test",namespace="shop",pod="payments-old-b",uid="uid-old-b",node="node-c",job="kube-state-metrics"}'
+        values: '1x12'
+      - series: 'kube_pod_info{cluster="test",namespace="shop",pod="payments-new-a",uid="uid-new",node="node-b",job="kube-state-metrics"}'
+        values: '1x12'
+      - series: 'kube_pod_container_info{cluster="test",namespace="shop",pod="payments-old-a",uid="uid-old",container="app",image="example/payments:v1",image_id="sha256:old",job="kube-state-metrics"}'
+        values: '1x12'
+      - series: 'kube_pod_container_info{cluster="test",namespace="shop",pod="payments-old-b",uid="uid-old-b",container="app",image="example/payments:v1",image_id="sha256:old",job="kube-state-metrics"}'
+        values: '1x12'
+      - series: 'kube_pod_container_info{cluster="test",namespace="shop",pod="payments-new-a",uid="uid-new",container="app",image="example/payments:v2",image_id="sha256:new",job="kube-state-metrics"}'
+        values: '1x12'
+      - series: 'container_cpu_usage_seconds_total{cluster="test",namespace="shop",pod="payments-old-a",container="app",image="example/payments:v1",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+30x12'
+      - series: 'container_cpu_usage_seconds_total{cluster="test",namespace="shop",pod="payments-old-b",container="app",image="example/payments:v1",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+24x12'
+      - series: 'container_cpu_usage_seconds_total{cluster="test",namespace="shop",pod="payments-new-a",container="app",image="example/payments:v2",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+48x12'
+
+    promql_expr_test:
+      - expr: resource_review:workload_revision_pod_info
+        eval_time: 10m
+        exp_samples:
+          - labels: 'resource_review:workload_revision_pod_info{cluster="test",namespace="shop",workload_type="deployment",workload="payments",revision="payments-old",revision_source="replicaset",pod="payments-old-a",uid="uid-old",node="node-a"}'
+            value: 1
+          - labels: 'resource_review:workload_revision_pod_info{cluster="test",namespace="shop",workload_type="deployment",workload="payments",revision="payments-old",revision_source="replicaset",pod="payments-old-b",uid="uid-old-b",node="node-c"}'
+            value: 1
+          - labels: 'resource_review:workload_revision_pod_info{cluster="test",namespace="shop",workload_type="deployment",workload="payments",revision="payments-new",revision_source="replicaset",pod="payments-new-a",uid="uid-new",node="node-b"}'
+            value: 1
+      - expr: resource_review:container_cpu_usage_cores:rate5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'resource_review:container_cpu_usage_cores:rate5m{cluster="test",namespace="shop",workload_type="deployment",workload="payments",revision="payments-old",revision_source="replicaset",pod="payments-old-a",uid="uid-old",node="node-a",container="app",image="example/payments:v1",image_id="sha256:old"}'
+            value: 0.5
+          - labels: 'resource_review:container_cpu_usage_cores:rate5m{cluster="test",namespace="shop",workload_type="deployment",workload="payments",revision="payments-old",revision_source="replicaset",pod="payments-old-b",uid="uid-old-b",node="node-c",container="app",image="example/payments:v1",image_id="sha256:old"}'
+            value: 0.4
+          - labels: 'resource_review:container_cpu_usage_cores:rate5m{cluster="test",namespace="shop",workload_type="deployment",workload="payments",revision="payments-new",revision_source="replicaset",pod="payments-new-a",uid="uid-new",node="node-b",container="app",image="example/payments:v2",image_id="sha256:new"}'
+            value: 0.8
+
+  - name: non-deployment pod UIDs are conservative revision boundaries
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_owner{cluster="test",namespace="shop",pod="cache-0",owner_kind="StatefulSet",owner_name="cache",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x5'
+      - series: 'kube_pod_owner{cluster="test",namespace="shop",pod="cache-1",owner_kind="StatefulSet",owner_name="cache",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x5'
+      - series: 'kube_pod_info{cluster="test",namespace="shop",pod="cache-0",uid="cache-uid-0",node="node-a",job="kube-state-metrics"}'
+        values: '1x5'
+      - series: 'kube_pod_info{cluster="test",namespace="shop",pod="cache-1",uid="cache-uid-1",node="node-b",job="kube-state-metrics"}'
+        values: '1x5'
+
+    promql_expr_test:
+      - expr: resource_review:workload_revision_pod_info
+        eval_time: 4m
+        exp_samples:
+          - labels: 'resource_review:workload_revision_pod_info{cluster="test",namespace="shop",workload_type="statefulset",workload="cache",revision="cache-uid-0",revision_source="pod_uid",pod="cache-0",uid="cache-uid-0",node="node-a"}'
+            value: 1
+          - labels: 'resource_review:workload_revision_pod_info{cluster="test",namespace="shop",workload_type="statefulset",workload="cache",revision="cache-uid-1",revision_source="pod_uid",pod="cache-1",uid="cache-uid-1",node="node-b"}'
+            value: 1
+
+  - name: reused pod names keep historical events attached to the original uid
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_owner{cluster="test",namespace="shop",pod="cache-0",owner_kind="StatefulSet",owner_name="cache",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x10'
+      - series: 'kube_pod_info{cluster="test",namespace="shop",pod="cache-0",uid="cache-old",node="node-a",job="kube-state-metrics"}'
+        values: '1x4 stale _x5'
+      - series: 'kube_pod_container_info{cluster="test",namespace="shop",pod="cache-0",uid="cache-old",container="app",image="example/cache:v1",image_id="sha256:old",job="kube-state-metrics"}'
+        values: '1x4 stale _x5'
+      - series: 'kube_pod_container_status_restarts_total{cluster="test",namespace="shop",pod="cache-0",uid="cache-old",container="app",job="kube-state-metrics"}'
+        values: '0+1x4 stale _x5'
+      - series: 'kube_pod_container_status_last_terminated_reason{cluster="test",namespace="shop",pod="cache-0",uid="cache-old",container="app",reason="OOMKilled",job="kube-state-metrics"}'
+        values: '0 0 0 1 1 stale _x5'
+      - series: 'container_oom_events_total{cluster="test",namespace="shop",pod="cache-0",container="app",id="/old",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+1x4 stale _x5'
+      - series: 'kube_pod_info{cluster="test",namespace="shop",pod="cache-0",uid="cache-new",node="node-b",job="kube-state-metrics"}'
+        values: '_x5 1x5'
+      - series: 'kube_pod_container_info{cluster="test",namespace="shop",pod="cache-0",uid="cache-new",container="app",image="example/cache:v2",image_id="sha256:new",job="kube-state-metrics"}'
+        values: '_x5 1x5'
+      - series: 'kube_pod_container_status_restarts_total{cluster="test",namespace="shop",pod="cache-0",uid="cache-new",container="app",job="kube-state-metrics"}'
+        values: '_x5 0+2x5'
+      - series: 'container_oom_events_total{cluster="test",namespace="shop",pod="cache-0",container="app",id="/new",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '_x5 0+2x5'
+
+    promql_expr_test:
+      - expr: 'last_over_time(resource_review:container_restarts_total{uid="cache-old"}[10m])'
+        eval_time: 10m
+        exp_samples:
+          - labels: 'resource_review:container_restarts_total{cluster="test",namespace="shop",workload_type="statefulset",workload="cache",revision="cache-old",revision_source="pod_uid",pod="cache-0",uid="cache-old",node="node-a",container="app",image="example/cache:v1",image_id="sha256:old"}'
+            value: 4
+      - expr: 'last_over_time(resource_review:container_restarts_total{uid="cache-new"}[10m])'
+        eval_time: 10m
+        exp_samples:
+          - labels: 'resource_review:container_restarts_total{cluster="test",namespace="shop",workload_type="statefulset",workload="cache",revision="cache-new",revision_source="pod_uid",pod="cache-0",uid="cache-new",node="node-b",container="app",image="example/cache:v2",image_id="sha256:new"}'
+            value: 10
+      - expr: 'last_over_time(resource_review:container_oom_events_total{uid="cache-old"}[10m])'
+        eval_time: 10m
+        exp_samples:
+          - labels: 'resource_review:container_oom_events_total{cluster="test",namespace="shop",workload_type="statefulset",workload="cache",revision="cache-old",revision_source="pod_uid",pod="cache-0",uid="cache-old",node="node-a",container="app",image="example/cache:v1",image_id="sha256:old"}'
+            value: 4
+      - expr: 'last_over_time(resource_review:container_oom_events_total{uid="cache-new"}[10m])'
+        eval_time: 10m
+        exp_samples:
+          - labels: 'resource_review:container_oom_events_total{cluster="test",namespace="shop",workload_type="statefulset",workload="cache",revision="cache-new",revision_source="pod_uid",pod="cache-0",uid="cache-new",node="node-b",container="app",image="example/cache:v2",image_id="sha256:new"}'
+            value: 10
+      - expr: 'max_over_time(resource_review:container_last_termination_oomkilled{uid="cache-old"}[10m])'
+        eval_time: 10m
+        exp_samples:
+          - labels: '{cluster="test",namespace="shop",workload_type="statefulset",workload="cache",revision="cache-old",revision_source="pod_uid",pod="cache-0",uid="cache-old",node="node-a",container="app",image="example/cache:v1",image_id="sha256:old"}'
+            value: 1
+
+  - name: standalone and uncommon controllers retain explicit ownership
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_owner{cluster="test",namespace="ops",pod="standalone-rs-a",owner_kind="ReplicaSet",owner_name="standalone-rs",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_pod_info{cluster="test",namespace="ops",pod="standalone-rs-a",uid="rs-uid",node="node-a",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_pod_owner{cluster="test",namespace="ops",pod="kube-apiserver-node-a",owner_kind="Node",owner_name="node-a",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_pod_info{cluster="test",namespace="ops",pod="kube-apiserver-node-a",uid="static-uid",node="node-a",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_pod_owner{cluster="test",namespace="ops",pod="rollout-a",owner_kind="ReplicaSet",owner_name="checkout-rs",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_replicaset_owner{cluster="test",namespace="ops",replicaset="checkout-rs",owner_kind="Rollout",owner_name="checkout",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_pod_info{cluster="test",namespace="ops",pod="rollout-a",uid="rollout-uid",node="node-b",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_pod_owner{cluster="test",namespace="ops",pod="backup-123-a",owner_kind="Job",owner_name="backup-123",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_job_owner{cluster="test",namespace="ops",job_name="backup-123",owner_kind="CronJob",owner_name="backup",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_pod_info{cluster="test",namespace="ops",pod="backup-123-a",uid="job-uid",node="node-c",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_pod_owner{cluster="test",namespace="ops",pod="spark-a",owner_kind="SparkApplication",owner_name="analytics",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_pod_info{cluster="test",namespace="ops",pod="spark-a",uid="spark-uid",node="node-d",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_pod_owner{cluster="test",namespace="ops",pod="agent-a",owner_kind="DaemonSet",owner_name="agent",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_pod_info{cluster="test",namespace="ops",pod="agent-a",uid="daemon-uid",node="node-e",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_pod_owner{cluster="test",namespace="ops",pod="manual-1-a",owner_kind="Job",owner_name="manual-1",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x3'
+      - series: 'kube_pod_info{cluster="test",namespace="ops",pod="manual-1-a",uid="manual-uid",node="node-f",job="kube-state-metrics"}'
+        values: '1x3'
+
+    promql_expr_test:
+      - expr: resource_review:workload_revision_pod_info
+        eval_time: 2m
+        exp_samples:
+          - labels: 'resource_review:workload_revision_pod_info{cluster="test",namespace="ops",workload_type="replicaset",workload="standalone-rs",revision="standalone-rs",revision_source="replicaset_name",pod="standalone-rs-a",uid="rs-uid",node="node-a"}'
+            value: 1
+          - labels: 'resource_review:workload_revision_pod_info{cluster="test",namespace="ops",workload_type="staticpod",workload="kube-apiserver-node-a",revision="static-uid",revision_source="pod_uid",pod="kube-apiserver-node-a",uid="static-uid",node="node-a"}'
+            value: 1
+          - labels: 'resource_review:workload_revision_pod_info{cluster="test",namespace="ops",workload_type="Rollout",workload="checkout",revision="checkout-rs",revision_source="replicaset",pod="rollout-a",uid="rollout-uid",node="node-b"}'
+            value: 1
+          - labels: 'resource_review:workload_revision_pod_info{cluster="test",namespace="ops",workload_type="CronJob",workload="backup",revision="backup-123",revision_source="job_name",pod="backup-123-a",uid="job-uid",node="node-c"}'
+            value: 1
+          - labels: 'resource_review:workload_revision_pod_info{cluster="test",namespace="ops",workload_type="SparkApplication",workload="analytics",revision="spark-uid",revision_source="pod_uid",pod="spark-a",uid="spark-uid",node="node-d"}'
+            value: 1
+          - labels: 'resource_review:workload_revision_pod_info{cluster="test",namespace="ops",workload_type="daemonset",workload="agent",revision="daemon-uid",revision_source="pod_uid",pod="agent-a",uid="daemon-uid",node="node-e"}'
+            value: 1
+          - labels: 'resource_review:workload_revision_pod_info{cluster="test",namespace="ops",workload_type="job",workload="manual-1",revision="manual-uid",revision_source="pod_uid",pod="manual-1-a",uid="manual-uid",node="node-f"}'
+            value: 1
+
+  - name: identical workload names remain separate across clusters
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_owner{cluster="east",namespace="shop",pod="api-a",owner_kind="ReplicaSet",owner_name="api-abc",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'kube_replicaset_owner{cluster="east",namespace="shop",replicaset="api-abc",owner_kind="Deployment",owner_name="api",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'kube_pod_info{cluster="east",namespace="shop",pod="api-a",uid="east-uid",node="east-node",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'kube_pod_container_info{cluster="east",namespace="shop",pod="api-a",uid="east-uid",container="app",image="example/api:v1",image_id="sha256:east",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'container_cpu_usage_seconds_total{cluster="east",namespace="shop",pod="api-a",container="app",image="example/api:v1",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+30x6'
+      - series: 'kube_pod_owner{cluster="west",namespace="shop",pod="api-a",owner_kind="ReplicaSet",owner_name="api-abc",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'kube_replicaset_owner{cluster="west",namespace="shop",replicaset="api-abc",owner_kind="Deployment",owner_name="api",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'kube_pod_info{cluster="west",namespace="shop",pod="api-a",uid="west-uid",node="west-node",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'kube_pod_container_info{cluster="west",namespace="shop",pod="api-a",uid="west-uid",container="app",image="example/api:v1",image_id="sha256:west",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'container_cpu_usage_seconds_total{cluster="west",namespace="shop",pod="api-a",container="app",image="example/api:v1",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+60x6'
+
+    promql_expr_test:
+      - expr: 'max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_cpu_usage_cores:rate5m)'
+        eval_time: 6m
+        exp_samples:
+          - labels: '{cluster="east",namespace="shop",workload_type="deployment",workload="api",revision="api-abc",revision_source="replicaset",container="app",image="example/api:v1",image_id="sha256:east"}'
+            value: 0.5
+          - labels: '{cluster="west",namespace="shop",workload_type="deployment",workload="api",revision="api-abc",revision_source="replicaset",container="app",image="example/api:v1",image_id="sha256:west"}'
+            value: 1
+
+  - name: every evidence family is recorded with expected units
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_owner{cluster="test",namespace="shop",pod="worker-a",owner_kind="ReplicaSet",owner_name="worker-abc",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x7'
+      - series: 'kube_replicaset_owner{cluster="test",namespace="shop",replicaset="worker-abc",owner_kind="Deployment",owner_name="worker",owner_is_controller="true",job="kube-state-metrics"}'
+        values: '1x7'
+      - series: 'kube_pod_info{cluster="test",namespace="shop",pod="worker-a",uid="worker-uid",node="node-a",job="kube-state-metrics"}'
+        values: '1x7'
+      - series: 'kube_pod_container_info{cluster="test",namespace="shop",pod="worker-a",uid="worker-uid",container="app",image="example/worker:v1",image_id="sha256:worker",job="kube-state-metrics"}'
+        values: '1x7'
+      - series: 'kube_pod_created{cluster="test",namespace="shop",pod="worker-a",uid="worker-uid",job="kube-state-metrics"}'
+        values: '1000x7'
+      - series: 'container_cpu_usage_seconds_total{cluster="test",namespace="shop",pod="worker-a",container="app",image="example/worker:v1",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+30x7'
+      - series: 'container_cpu_cfs_throttled_periods_total{cluster="test",namespace="shop",pod="worker-a",container="app",image="example/worker:v1",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+600x7'
+      - series: 'container_cpu_cfs_periods_total{cluster="test",namespace="shop",pod="worker-a",container="app",image="example/worker:v1",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+6000x7'
+      - series: 'container_cpu_cfs_throttled_seconds_total{cluster="test",namespace="shop",pod="worker-a",container="app",image="example/worker:v1",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+6x7'
+      - series: 'container_pressure_cpu_waiting_seconds_total{cluster="test",namespace="shop",pod="worker-a",container="app",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+3x7'
+      - series: 'container_memory_usage_bytes{cluster="test",namespace="shop",pod="worker-a",container="app",image="example/worker:v1",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '1000+100x7'
+      - series: 'container_memory_working_set_bytes{cluster="test",namespace="shop",pod="worker-a",container="app",image="example/worker:v1",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '800+80x7'
+      - series: 'container_memory_rss{cluster="test",namespace="shop",pod="worker-a",container="app",image="example/worker:v1",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '600+60x7'
+      - series: 'container_memory_cache{cluster="test",namespace="shop",pod="worker-a",container="app",image="example/worker:v1",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '200+20x7'
+      - series: 'container_pressure_memory_waiting_seconds_total{cluster="test",namespace="shop",pod="worker-a",container="app",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+3x7'
+      - series: 'kube_pod_container_resource_requests{cluster="test",namespace="shop",pod="worker-a",uid="worker-uid",container="app",resource="cpu",unit="core",job="kube-state-metrics"}'
+        values: '0.5x7'
+      - series: 'kube_pod_container_resource_limits{cluster="test",namespace="shop",pod="worker-a",uid="worker-uid",container="app",resource="cpu",unit="core",job="kube-state-metrics"}'
+        values: '1x7'
+      - series: 'kube_pod_container_resource_requests{cluster="test",namespace="shop",pod="worker-a",uid="worker-uid",container="app",resource="memory",unit="byte",job="kube-state-metrics"}'
+        values: '536870912x7'
+      - series: 'kube_pod_container_resource_limits{cluster="test",namespace="shop",pod="worker-a",uid="worker-uid",container="app",resource="memory",unit="byte",job="kube-state-metrics"}'
+        values: '1073741824x7'
+      - series: 'kube_pod_container_status_restarts_total{cluster="test",namespace="shop",pod="worker-a",uid="worker-uid",container="app",job="kube-state-metrics"}'
+        values: '0+1x7'
+      - series: 'kube_pod_container_status_last_terminated_reason{cluster="test",namespace="shop",pod="worker-a",uid="worker-uid",container="app",reason="OOMKilled",job="kube-state-metrics"}'
+        values: '1x7'
+      - series: 'container_oom_events_total{cluster="test",namespace="shop",pod="worker-a",container="app",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+1x7'
+
+    promql_expr_test:
+      - expr: 'sum(resource_review:workload_revision_pod_created_timestamp_seconds)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 1000 }]
+      - expr: 'sum(resource_review:container_cpu_usage_cores:rate5m)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 0.5 }]
+      - expr: 'sum(resource_review:container_cpu_throttled_periods:ratio_rate5m)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 0.1 }]
+      - expr: 'sum(resource_review:container_cpu_throttled_seconds:rate5m)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 0.1 }]
+      - expr: 'sum(resource_review:container_cpu_pressure_waiting:ratio_rate5m)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 0.05 }]
+      - expr: 'sum(resource_review:container_memory_usage_bytes)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 1700 }]
+      - expr: 'sum(resource_review:container_memory_working_set_bytes)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 1360 }]
+      - expr: 'sum(resource_review:container_memory_rss_bytes)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 1020 }]
+      - expr: 'sum(resource_review:container_memory_cache_bytes)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 340 }]
+      - expr: 'sum(resource_review:container_memory_pressure_waiting:ratio_rate5m)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 0.05 }]
+      - expr: 'sum(resource_review:container_cpu_request_cores)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 0.5 }]
+      - expr: 'sum(resource_review:container_cpu_limit_cores)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 1 }]
+      - expr: 'sum(resource_review:container_memory_request_bytes)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 536870912 }]
+      - expr: 'sum(resource_review:container_memory_limit_bytes)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 1073741824 }]
+      - expr: 'sum(resource_review:container_restarts_total)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 7 }]
+      - expr: 'sum(resource_review:container_last_termination_oomkilled)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 1 }]
+      - expr: 'sum(resource_review:container_oom_events_total)'
+        eval_time: 7m
+        exp_samples: [{ labels: '{}', value: 7 }]
+
+  - name: qos class and last-terminated evidence stay attached to container identity
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_info{namespace="default",pod="shell",uid="shell-uid",node="node-a",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'kube_pod_container_info{namespace="default",pod="shell",uid="shell-uid",container="shell",image="busybox:1.36",image_id="sha256:busybox",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'kube_pod_status_qos_class{namespace="default",pod="shell",uid="shell-uid",qos_class="Burstable",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'kube_pod_container_status_last_terminated_reason{namespace="default",pod="shell",uid="shell-uid",container="shell",reason="Error",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'kube_pod_container_status_last_terminated_exitcode{namespace="default",pod="shell",uid="shell-uid",container="shell",job="kube-state-metrics"}'
+        values: '137x6'
+
+    promql_expr_test:
+      - expr: resource_review:workload_revision_pod_container_qos_class
+        eval_time: 5m
+        exp_samples:
+          - labels: 'resource_review:workload_revision_pod_container_qos_class{namespace="default",workload_type="pod",workload="shell",revision="shell-uid",revision_source="pod_uid",pod="shell",uid="shell-uid",node="node-a",container="shell",image="busybox:1.36",image_id="sha256:busybox",qos_class="Burstable"}'
+            value: 1
+      - expr: resource_review:container_last_terminated_reason
+        eval_time: 5m
+        exp_samples:
+          - labels: 'resource_review:container_last_terminated_reason{namespace="default",workload_type="pod",workload="shell",revision="shell-uid",revision_source="pod_uid",pod="shell",uid="shell-uid",node="node-a",container="shell",image="busybox:1.36",image_id="sha256:busybox",reason="Error"}'
+            value: 1
+      - expr: resource_review:container_last_terminated_exit_code
+        eval_time: 5m
+        exp_samples:
+          - labels: 'resource_review:container_last_terminated_exit_code{namespace="default",workload_type="pod",workload="shell",revision="shell-uid",revision_source="pod_uid",pod="shell",uid="shell-uid",node="node-a",container="shell",image="busybox:1.36",image_id="sha256:busybox"}'
+            value: 137
+
+  - name: absent evidence stays absent instead of becoming zero
+    interval: 1m
+    input_series:
+      - series: 'kube_pod_info{namespace="default",pod="no-psi",uid="no-psi-uid",node="node-a",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'kube_pod_container_info{namespace="default",pod="no-psi",uid="no-psi-uid",container="app",image="example/no-psi:v1",image_id="sha256:no-psi",job="kube-state-metrics"}'
+        values: '1x6'
+      - series: 'container_cpu_usage_seconds_total{namespace="default",pod="no-psi",container="app",image="example/no-psi:v1",job="kubelet",metrics_path="/metrics/cadvisor"}'
+        values: '0+6x6'
+
+    promql_expr_test:
+      - expr: resource_review:container_cpu_pressure_waiting:ratio_rate5m
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_memory_pressure_waiting:ratio_rate5m
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_cpu_throttled_periods:ratio_rate5m
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_cpu_throttled_seconds:rate5m
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_memory_usage_bytes
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_memory_working_set_bytes
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_memory_rss_bytes
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_memory_cache_bytes
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_cpu_request_cores
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_cpu_limit_cores
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_memory_request_bytes
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_memory_limit_bytes
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_restarts_total
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_last_termination_oomkilled
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_oom_events_total
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:workload_revision_pod_container_qos_class
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_last_terminated_reason
+        eval_time: 5m
+        exp_samples: []
+      - expr: resource_review:container_last_terminated_exit_code
+        eval_time: 5m
+        exp_samples: []

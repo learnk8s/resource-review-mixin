@@ -1,0 +1,244 @@
+"apiVersion": "monitoring.coreos.com/v1"
+"kind": "PrometheusRule"
+"metadata":
+  "labels":
+    "release": "kube-prometheus-stack"
+  "name": "resource-review-mixin"
+  "namespace": "monitoring"
+"spec":
+  "groups":
+  - "interval": "1m"
+    "name": "resource-review"
+    "rules":
+    - "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node) (label_replace(\n  label_replace(\n    max by (cluster, namespace, pod, uid, node, workload, revision) (\n      max by (cluster, namespace, pod, revision) (\n        label_replace(\n          kube_pod_owner{job=\"kube-state-metrics\", owner_kind=\"ReplicaSet\", owner_is_controller=\"true\"},\n          \"revision\", \"$1\", \"owner_name\", \"(.+)\"\n        )\n      )\n      * on (cluster, namespace, revision) group_left(workload)\n      max by (cluster, namespace, revision, workload) (\n        label_replace(\n          label_replace(\n            kube_replicaset_owner{job=\"kube-state-metrics\", owner_kind=\"Deployment\", owner_is_controller=\"true\"},\n            \"revision\", \"$1\", \"replicaset\", \"(.+)\"\n          ),\n          \"workload\", \"$1\", \"owner_name\", \"(.+)\"\n        )\n      )\n      * on (cluster, namespace, pod) group_left(uid, node)\n      max by (cluster, namespace, pod, uid, node) (\n        kube_pod_info{job=\"kube-state-metrics\"}\n      )\n    ),\n    \"revision_source\", \"replicaset\", \"revision\", \".+\"\n  ),\n  \"workload_type\", \"deployment\", \"workload\", \".+\"\n)\n or label_replace(\n  label_replace(\n    label_replace(\n      max by (cluster, namespace, pod, uid, node, revision, owner_kind, owner_name) (\n        max by (cluster, namespace, pod, revision) (\n          label_replace(\n            kube_pod_owner{job=\"kube-state-metrics\", owner_kind=\"ReplicaSet\", owner_is_controller=\"true\"},\n            \"revision\", \"$1\", \"owner_name\", \"(.+)\"\n          )\n        )\n        * on (cluster, namespace, revision) group_left(owner_kind, owner_name)\n        max by (cluster, namespace, revision, owner_kind, owner_name) (\n          label_replace(\n            kube_replicaset_owner{job=\"kube-state-metrics\", owner_kind!=\"Deployment\", owner_kind!=\"\"},\n            \"revision\", \"$1\", \"replicaset\", \"(.+)\"\n          )\n        )\n        * on (cluster, namespace, pod) group_left(uid, node)\n        max by (cluster, namespace, pod, uid, node) (\n          kube_pod_info{job=\"kube-state-metrics\"}\n        )\n      ),\n      \"workload\", \"$1\", \"owner_name\", \"(.+)\"\n    ),\n    \"revision_source\", \"replicaset\", \"revision\", \".+\"\n  ),\n  \"workload_type\", \"$1\", \"owner_kind\", \"(.+)\"\n)\n or label_replace(\n  label_replace(\n    label_replace(\n      max by (cluster, namespace, pod, uid, node, workload) (\n        max by (cluster, namespace, pod, workload) (\n          label_replace(\n            kube_pod_owner{job=\"kube-state-metrics\", owner_kind=\"ReplicaSet\", owner_is_controller=\"true\"},\n            \"workload\", \"$1\", \"owner_name\", \"(.+)\"\n          )\n          unless on (cluster, namespace, workload)\n          label_replace(\n            kube_replicaset_owner{job=\"kube-state-metrics\", owner_kind!=\"\"},\n            \"workload\", \"$1\", \"replicaset\", \"(.+)\"\n          )\n        )\n        * on (cluster, namespace, pod) group_left(uid, node)\n        max by (cluster, namespace, pod, uid, node) (\n          kube_pod_info{job=\"kube-state-metrics\"}\n        )\n      ),\n      \"revision\", \"$1\", \"workload\", \"(.+)\"\n    ),\n    \"revision_source\", \"replicaset_name\", \"revision\", \".+\"\n  ),\n  \"workload_type\", \"replicaset\", \"workload\", \".+\"\n)\n or label_replace(\n  label_replace(\n    label_replace(\n      label_replace(\n        max by (cluster, namespace, pod, owner_name) (\n          kube_pod_owner{job=\"kube-state-metrics\", owner_kind=\"StatefulSet\", owner_is_controller=\"true\"}\n        )\n        * on (cluster, namespace, pod) group_left(uid, node)\n        max by (cluster, namespace, pod, uid, node) (\n          kube_pod_info{job=\"kube-state-metrics\"}\n        ),\n        \"workload\", \"$1\", \"owner_name\", \"(.+)\"\n      ),\n      \"revision\", \"$1\", \"uid\", \"(.+)\"\n    ),\n    \"revision_source\", \"pod_uid\", \"uid\", \".+\"\n  ),\n  \"workload_type\", \"statefulset\", \"owner_name\", \".+\"\n)\n or label_replace(\n  label_replace(\n    label_replace(\n      label_replace(\n        max by (cluster, namespace, pod, owner_name) (\n          kube_pod_owner{job=\"kube-state-metrics\", owner_kind=\"DaemonSet\", owner_is_controller=\"true\"}\n        )\n        * on (cluster, namespace, pod) group_left(uid, node)\n        max by (cluster, namespace, pod, uid, node) (\n          kube_pod_info{job=\"kube-state-metrics\"}\n        ),\n        \"workload\", \"$1\", \"owner_name\", \"(.+)\"\n      ),\n      \"revision\", \"$1\", \"uid\", \"(.+)\"\n    ),\n    \"revision_source\", \"pod_uid\", \"uid\", \".+\"\n  ),\n  \"workload_type\", \"daemonset\", \"owner_name\", \".+\"\n)\n or label_replace(\n  label_replace(\n    label_replace(\n      max by (cluster, namespace, pod, uid, node, revision, owner_kind, owner_name) (\n        max by (cluster, namespace, pod, revision) (\n          label_replace(\n            kube_pod_owner{job=\"kube-state-metrics\", owner_kind=\"Job\", owner_is_controller=\"true\"},\n            \"revision\", \"$1\", \"owner_name\", \"(.+)\"\n          )\n        )\n        * on (cluster, namespace, revision) group_left(owner_kind, owner_name)\n        max by (cluster, namespace, revision, owner_kind, owner_name) (\n          label_replace(\n            kube_job_owner{job=\"kube-state-metrics\", owner_kind!=\"Pod\", owner_kind!=\"\"},\n            \"revision\", \"$1\", \"job_name\", \"(.+)\"\n          )\n        )\n        * on (cluster, namespace, pod) group_left(uid, node)\n        max by (cluster, namespace, pod, uid, node) (\n          kube_pod_info{job=\"kube-state-metrics\"}\n        )\n      ),\n      \"workload\", \"$1\", \"owner_name\", \"(.+)\"\n    ),\n    \"revision_source\", \"job_name\", \"revision\", \".+\"\n  ),\n  \"workload_type\", \"$1\", \"owner_kind\", \"(.+)\"\n)\n or label_replace(\n  label_replace(\n    label_replace(\n      max by (cluster, namespace, pod, uid, node, workload) (\n        max by (cluster, namespace, pod, workload) (\n          label_replace(\n            kube_pod_owner{job=\"kube-state-metrics\", owner_kind=\"Job\", owner_is_controller=\"true\"},\n            \"workload\", \"$1\", \"owner_name\", \"(.+)\"\n          )\n          unless on (cluster, namespace, workload)\n          label_replace(\n            kube_job_owner{job=\"kube-state-metrics\", owner_kind!=\"Pod\", owner_kind!=\"\"},\n            \"workload\", \"$1\", \"job_name\", \"(.+)\"\n          )\n        )\n        * on (cluster, namespace, pod) group_left(uid, node)\n        max by (cluster, namespace, pod, uid, node) (\n          kube_pod_info{job=\"kube-state-metrics\"}\n        )\n      ),\n      \"revision\", \"$1\", \"uid\", \"(.+)\"\n    ),\n      \"revision_source\", \"pod_uid\", \"revision\", \".+\"\n    ),\n    \"workload_type\", \"job\", \"workload\", \".+\"\n  )\n or label_replace(\n  label_replace(\n    label_replace(\n      label_replace(\n        max by (cluster, namespace, pod, uid, node) (\n          kube_pod_owner{job=\"kube-state-metrics\", owner_kind=\"Node\", owner_is_controller=\"true\"}\n          * on (cluster, namespace, pod) group_left(uid, node)\n          max by (cluster, namespace, pod, uid, node) (\n            kube_pod_info{job=\"kube-state-metrics\"}\n          )\n        ),\n        \"workload\", \"$1\", \"pod\", \"(.+)\"\n      ),\n      \"revision\", \"$1\", \"uid\", \"(.+)\"\n    ),\n    \"revision_source\", \"pod_uid\", \"uid\", \".+\"\n  ),\n  \"workload_type\", \"staticpod\", \"pod\", \".+\"\n)\n or label_replace(\n  label_replace(\n    label_replace(\n      label_replace(\n        max by (cluster, namespace, pod, uid, node, owner_kind, owner_name) (\n          kube_pod_owner{job=\"kube-state-metrics\", owner_is_controller=\"true\", owner_kind!~\"ReplicaSet|StatefulSet|DaemonSet|Job|Node\"}\n          * on (cluster, namespace, pod) group_left(uid, node)\n          max by (cluster, namespace, pod, uid, node) (\n            kube_pod_info{job=\"kube-state-metrics\"}\n          )\n        ),\n        \"workload\", \"$1\", \"owner_name\", \"(.+)\"\n      ),\n      \"revision\", \"$1\", \"uid\", \"(.+)\"\n    ),\n    \"revision_source\", \"pod_uid\", \"uid\", \".+\"\n  ),\n  \"workload_type\", \"$1\", \"owner_kind\", \"(.+)\"\n)\n or label_replace(\n  label_replace(\n    label_replace(\n      label_replace(\n        max by (cluster, namespace, pod, uid, node) (\n          kube_pod_info{job=\"kube-state-metrics\"}\n          unless on (cluster, namespace, pod)\n          kube_pod_owner{job=\"kube-state-metrics\", owner_is_controller=\"true\"}\n        ),\n        \"workload\", \"$1\", \"pod\", \"(.+)\"\n      ),\n      \"revision\", \"$1\", \"uid\", \"(.+)\"\n    ),\n    \"revision_source\", \"pod_uid\", \"uid\", \".+\"\n  ),\n  \"workload_type\", \"pod\", \"pod\", \".+\"\n)\n)"
+      "record": "resource_review:workload_revision_pod_info"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          max by (cluster, namespace, pod, uid, container, image, image_id) (
+            kube_pod_container_info{job="kube-state-metrics", container!=""}
+          )
+          * on (cluster, namespace, pod, uid)
+            group_left(workload_type, workload, revision, revision_source, node)
+            resource_review:workload_revision_pod_info
+        )
+      "record": "resource_review:workload_revision_pod_container_info"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node) (
+          max by (cluster, namespace, pod, uid) (
+            kube_pod_created{job="kube-state-metrics"}
+          )
+          * on (cluster, namespace, pod, uid)
+            group_left(workload_type, workload, revision, revision_source, node)
+            resource_review:workload_revision_pod_info
+        )
+      "record": "resource_review:workload_revision_pod_created_timestamp_seconds"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          sum by (cluster, namespace, pod, container) (
+          rate(container_cpu_usage_seconds_total{job="kubelet", metrics_path="/metrics/cadvisor", container!="", container!="POD", image!=""}[5m])
+        )
+        
+          * on (cluster, namespace, pod, container)
+            group_left(workload_type, workload, revision, revision_source, uid, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_cpu_usage_cores:rate5m"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          sum by (cluster, namespace, pod, container) (
+          rate(container_cpu_cfs_throttled_periods_total{job="kubelet", metrics_path="/metrics/cadvisor", container!="", container!="POD", image!=""}[5m])
+        )
+        /
+        sum by (cluster, namespace, pod, container) (
+          rate(container_cpu_cfs_periods_total{job="kubelet", metrics_path="/metrics/cadvisor", container!="", container!="POD", image!=""}[5m]) > 0
+        )
+        
+          * on (cluster, namespace, pod, container)
+            group_left(workload_type, workload, revision, revision_source, uid, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_cpu_throttled_periods:ratio_rate5m"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          sum by (cluster, namespace, pod, container) (
+          rate(container_cpu_cfs_throttled_seconds_total{job="kubelet", metrics_path="/metrics/cadvisor", container!="", container!="POD", image!=""}[5m])
+        )
+        
+          * on (cluster, namespace, pod, container)
+            group_left(workload_type, workload, revision, revision_source, uid, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_cpu_throttled_seconds:rate5m"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          sum by (cluster, namespace, pod, container) (
+          rate(container_pressure_cpu_waiting_seconds_total{job="kubelet", metrics_path="/metrics/cadvisor", container!="", container!="POD"}[5m])
+        )
+        
+          * on (cluster, namespace, pod, container)
+            group_left(workload_type, workload, revision, revision_source, uid, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_cpu_pressure_waiting:ratio_rate5m"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          max by (cluster, namespace, pod, container) (
+          container_memory_usage_bytes{job="kubelet", metrics_path="/metrics/cadvisor", container!="", container!="POD", image!=""}
+        )
+        
+          * on (cluster, namespace, pod, container)
+            group_left(workload_type, workload, revision, revision_source, uid, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_memory_usage_bytes"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          max by (cluster, namespace, pod, container) (
+          container_memory_working_set_bytes{job="kubelet", metrics_path="/metrics/cadvisor", container!="", container!="POD", image!=""}
+        )
+        
+          * on (cluster, namespace, pod, container)
+            group_left(workload_type, workload, revision, revision_source, uid, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_memory_working_set_bytes"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          max by (cluster, namespace, pod, container) (
+          container_memory_rss{job="kubelet", metrics_path="/metrics/cadvisor", container!="", container!="POD", image!=""}
+        )
+        
+          * on (cluster, namespace, pod, container)
+            group_left(workload_type, workload, revision, revision_source, uid, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_memory_rss_bytes"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          max by (cluster, namespace, pod, container) (
+          container_memory_cache{job="kubelet", metrics_path="/metrics/cadvisor", container!="", container!="POD", image!=""}
+        )
+        
+          * on (cluster, namespace, pod, container)
+            group_left(workload_type, workload, revision, revision_source, uid, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_memory_cache_bytes"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          sum by (cluster, namespace, pod, container) (
+          rate(container_pressure_memory_waiting_seconds_total{job="kubelet", metrics_path="/metrics/cadvisor", container!="", container!="POD"}[5m])
+        )
+        
+          * on (cluster, namespace, pod, container)
+            group_left(workload_type, workload, revision, revision_source, uid, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_memory_pressure_waiting:ratio_rate5m"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          max by (cluster, namespace, pod, uid, container) (
+          kube_pod_container_resource_requests{job="kube-state-metrics", resource="cpu", unit="core"}
+        )
+        
+          * on (cluster, namespace, pod, uid, container)
+            group_left(workload_type, workload, revision, revision_source, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_cpu_request_cores"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          max by (cluster, namespace, pod, uid, container) (
+          kube_pod_container_resource_limits{job="kube-state-metrics", resource="cpu", unit="core"}
+        )
+        
+          * on (cluster, namespace, pod, uid, container)
+            group_left(workload_type, workload, revision, revision_source, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_cpu_limit_cores"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          max by (cluster, namespace, pod, uid, container) (
+          kube_pod_container_resource_requests{job="kube-state-metrics", resource="memory", unit="byte"}
+        )
+        
+          * on (cluster, namespace, pod, uid, container)
+            group_left(workload_type, workload, revision, revision_source, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_memory_request_bytes"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          max by (cluster, namespace, pod, uid, container) (
+          kube_pod_container_resource_limits{job="kube-state-metrics", resource="memory", unit="byte"}
+        )
+        
+          * on (cluster, namespace, pod, uid, container)
+            group_left(workload_type, workload, revision, revision_source, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_memory_limit_bytes"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          max by (cluster, namespace, pod, uid, container) (
+          kube_pod_container_status_restarts_total{job="kube-state-metrics"}
+        )
+        
+          * on (cluster, namespace, pod, uid, container)
+            group_left(workload_type, workload, revision, revision_source, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_restarts_total"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          max by (cluster, namespace, pod, uid, container) (
+          kube_pod_container_status_last_terminated_reason{job="kube-state-metrics", reason="OOMKilled"} == 1
+        )
+        
+          * on (cluster, namespace, pod, uid, container)
+            group_left(workload_type, workload, revision, revision_source, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_last_termination_oomkilled"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          max by (cluster, namespace, pod, container) (
+          container_oom_events_total{job="kubelet", metrics_path="/metrics/cadvisor", container!="", container!="POD"}
+        )
+        
+          * on (cluster, namespace, pod, container)
+            group_left(workload_type, workload, revision, revision_source, uid, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_oom_events_total"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id, qos_class) (
+          resource_review:workload_revision_pod_container_info
+          * on (cluster, namespace, pod, uid) group_left(qos_class)
+          max by (cluster, namespace, pod, uid, qos_class) (
+            kube_pod_status_qos_class{job="kube-state-metrics"} == 1
+          )
+        )
+      "record": "resource_review:workload_revision_pod_container_qos_class"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id, reason) (
+          max by (cluster, namespace, pod, uid, container, reason) (
+            kube_pod_container_status_last_terminated_reason{job="kube-state-metrics"} == 1
+          )
+          * on (cluster, namespace, pod, uid, container)
+            group_left(workload_type, workload, revision, revision_source, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_last_terminated_reason"
+    - "expr": |
+        max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
+          max by (cluster, namespace, pod, uid, container) (
+          kube_pod_container_status_last_terminated_exitcode{job="kube-state-metrics"}
+        )
+        
+          * on (cluster, namespace, pod, uid, container)
+            group_left(workload_type, workload, revision, revision_source, node, image, image_id)
+            resource_review:workload_revision_pod_container_info
+        )
+      "record": "resource_review:container_last_terminated_exit_code"
