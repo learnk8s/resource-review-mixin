@@ -4,11 +4,13 @@
 
 `make dev` creates a Deployment called `review-sample` for this walkthrough. Open the [Kubernetes Resource Review dashboard](http://127.0.0.1:3000/d/learnk8s-resource-review/kubernetes-resource-review), select `resource-review-test` as the namespace, `deployment` as the workload kind, and `review-sample` as the workload. Leave revision, Pod, and container set to `All`, then choose `Last 1 hour` in the time picker.
 
-![Kubernetes Resource Review filters set to the local review-sample Deployment](image.png)
+![Kubernetes Resource Review filters set to the local review-sample Deployment](assets/dashboard-review-sample-filters.png)
 
 ## Start with Review context
 
-![Review context showing two current Pods, two Pod executions, one revision, one node, one hour of history, and complete CPU coverage](image-5.png)
+This section accompanies [Chapter 3: Collecting Container, Runtime, and Kubernetes Metrics](the-technical-guide-to-kubernetes-rightsizing/chapter-3.md) in [The Technical Guide to Kubernetes Rightsizing](the-technical-guide-to-kubernetes-rightsizing/README.md). The chapter says to keep the Pod, revision, node, and available history beside each CPU and memory value; the local `review-sample` Deployment below shows where those details appear in Kubernetes, Prometheus, and Grafana.
+
+![Review context showing two current Pods, two Pod executions, one revision, one node, one hour of history, and complete CPU coverage](assets/dashboard-review-context.png)
 
 Start with the Deployment that `make dev` created:
 
@@ -34,7 +36,7 @@ review-sample-85d7d6b6c6-cnp4v   33652669-a8b2-4b76-ba65-7629becb5834   resource
 review-sample-85d7d6b6c6-k2wxw   33d63449-e7b1-48f7-b55e-08a06865959b   resource-review-mixin-control-plane   Running
 ```
 
-Kubernetes creates the Pod name suffixes and UIDs, so they will change when you recreate the local cluster.
+Kubernetes creates the Pod name suffixes and UIDs, so they will change when you recreate the local cluster. [Add the State Kubernetes Knows](the-technical-guide-to-kubernetes-rightsizing/chapter-3.md#add-the-state-kubernetes-knows) explains that the UID lets Prometheus tell a recreated Pod from an older Pod that used the same name.
 
 Open [Prometheus](http://127.0.0.1:9090) and run this query. It returns one line for each Pod and shows its name, UID, revision, node, container, and image:
 
@@ -46,31 +48,31 @@ resource_review:workload_revision_pod_container_info{
 }
 ```
 
-![Prometheus showing the two review-sample Pod names, UIDs, revision, and node](image-2.png)
+![Prometheus showing the two review-sample Pod names, UIDs, revision, and node](assets/prometheus-workload-pod-details.png)
 
-Grafana does not run `kubectl` or read the Kubernetes API. The information reaches the dashboard in these steps:
+The information reaches the dashboard in these steps:
 
-1. kube-state-metrics reads the Pod, container, and owner fields from the Kubernetes API.
+1. `kube-state-metrics` reads the Pod, container, and owner fields from the Kubernetes API.
 2. Prometheus collects these four kube-state-metrics results:
 
-   ```promql
-   kube_pod_info{job="kube-state-metrics", namespace="resource-review-test", pod=~"review-sample-.*"}
-   ```
+```promql
+kube_pod_info{job="kube-state-metrics", namespace="resource-review-test", pod=~"review-sample-.*"}
+```
 
-   ```promql
-   kube_pod_container_info{job="kube-state-metrics", namespace="resource-review-test", pod=~"review-sample-.*"}
-   ```
+```promql
+kube_pod_container_info{job="kube-state-metrics", namespace="resource-review-test", pod=~"review-sample-.*"}
+```
 
-   ```promql
-   kube_pod_owner{job="kube-state-metrics", namespace="resource-review-test", pod=~"review-sample-.*"}
-   ```
+```promql
+kube_pod_owner{job="kube-state-metrics", namespace="resource-review-test", pod=~"review-sample-.*"}
+```
 
-   ```promql
-   kube_replicaset_owner{job="kube-state-metrics", namespace="resource-review-test", replicaset="review-sample-85d7d6b6c6"}
-   ```
+```promql
+kube_replicaset_owner{job="kube-state-metrics", namespace="resource-review-test", replicaset="review-sample-85d7d6b6c6"}
+```
 
-3. Every minute, Prometheus puts the Pod name, UID, ReplicaSet, Deployment, node, container, and image on one line and saves it as `resource_review:workload_revision_pod_container_info`.
-4. Grafana adds one more `count(...)` around the first four queries below to turn their lines into the numbers shown on the cards. Run the queries as written here in Prometheus so you can see the Pod, revision, and node lines that Grafana counts.
+1. Every minute, Prometheus puts the Pod name, UID, ReplicaSet, Deployment, node, container, and image on one line and saves it as `resource_review:workload_revision_pod_container_info`.
+2. Grafana adds one more `count(...)` around the first four queries below to turn their lines into the numbers shown on the cards. Run the queries as written here in Prometheus so you can see the Pod, revision, and node lines that Grafana counts.
 
 **Shortest history** and **CPU coverage** use CPU measurements instead. cAdvisor measures the CPU time used by each running container, Prometheus collects `container_cpu_usage_seconds_total`, and this query calculates the average CPU use over five minutes:
 
@@ -91,6 +93,8 @@ sum by (namespace, pod, container) (
 ```
 
 Every minute, Prometheus adds the matching Pod name, UID, revision, and node, then saves the result as `resource_review:container_cpu_usage_cores:rate5m`. **Shortest history** and **CPU coverage** count those saved CPU values.
+
+The book describes these two inputs in [Add the State Kubernetes Knows](the-technical-guide-to-kubernetes-rightsizing/chapter-3.md#add-the-state-kubernetes-knows): cAdvisor supplies the CPU measurement, while kube-state-metrics supplies the Pod UID, node, image, and owner that tell us which container produced it. [How cAdvisor turns cgroups into container metrics](the-technical-guide-to-kubernetes-rightsizing/chapter-3.md#how-cadvisor-turns-cgroups-into-container-metrics) follows the CPU measurement from Linux through the kubelet to Prometheus.
 
 ### Current Pods
 
@@ -113,7 +117,7 @@ The earlier `kubectl get pods` command reads the current Pod objects directly fr
 
 | Dashboard | Prometheus query result |
 |---|---|
-| ![Current Pods shows 2 in Review context](image-6.png) | ![Prometheus returns the two current Pod names and UIDs](image-3.png) |
+| ![Current Pods shows 2 in Review context](assets/dashboard-current-pods.png) | ![Prometheus returns the two current Pod names and UIDs](assets/prometheus-current-pods.png) |
 
 ### Pod executions
 
@@ -138,7 +142,7 @@ Kubernetes removes a Pod object after the Pod is deleted, so `kubectl` cannot li
 
 | Dashboard | Prometheus query result |
 |---|---|
-| ![Pod executions shows 2 in Review context](image-1.png) | ![Prometheus returns the two Pod names and UIDs recorded during the last hour](image-4.png) |
+| ![Pod executions shows 2 in Review context](assets/dashboard-pod-executions.png) | ![Prometheus returns the two Pod names and UIDs recorded during the last hour](assets/prometheus-pod-executions.png) |
 
 ### Revisions
 
@@ -161,7 +165,7 @@ count by (cluster, namespace, workload_type, workload, revision, revision_source
 
 | Dashboard | Prometheus query result |
 |---|---|
-| ![Revisions shows 1 in Review context](image-9.png) | ![Prometheus returns one revision shared by two Pods](image-7.png) |
+| ![Revisions shows 1 in Review context](assets/dashboard-revisions.png) | ![Prometheus returns one revision shared by two Pods](assets/prometheus-revisions.png) |
 
 Both Pods have `workload="review-sample"`, `revision="review-sample-85d7d6b6c6"`, and `revision_source="replicaset"`. The query puts them on one line with the value `2`, meaning that two Pods belong to that revision. Grafana counts the one revision line and shows **Revisions = 1**.
 
@@ -177,7 +181,7 @@ NAME                       OWNER           DESIRED   READY
 review-sample-85d7d6b6c6   review-sample   2         2
 ```
 
-This confirms the one current ReplicaSet. The Grafana card still comes from Prometheus because Prometheus can also keep revisions that disappeared during the selected hour.
+This confirms the one current ReplicaSet. [Keep workload revisions separate](the-technical-guide-to-kubernetes-rightsizing/chapter-3.md#keep-workload-revisions-separate) explains why the ReplicaSet matters: when a Deployment's Pod template changes, Kubernetes creates a new ReplicaSet and replacement Pods instead of changing the existing Pods. The Grafana card still comes from Prometheus because Prometheus can also keep revisions that disappeared during the selected hour.
 
 ### Nodes
 
@@ -217,7 +221,7 @@ This confirms the one current node. The Grafana card comes from Prometheus so th
 
 | Dashboard | Prometheus query result |
 |---|---|
-| ![Nodes shows 1 in Review context](image-10.png) | ![Prometheus returns one node shared by two Pods](image-8.png) |
+| ![Nodes shows 1 in Review context](assets/dashboard-nodes.png) | ![Prometheus returns one node shared by two Pods](assets/prometheus-nodes.png) |
 
 ### Shortest history
 
@@ -266,9 +270,11 @@ The selected hour contains 60 one-minute slots, and Prometheus has 60 CPU values
 
 The Kubernetes API does not count Prometheus samples, so there is no matching `kubectl` command for this card either.
 
+[Sampling Trades Detail for Volume](the-technical-guide-to-kubernetes-rightsizing/chapter-3.md#sampling-trades-detail-for-volume) explains that the sample count shows whether Prometheus failed to save an expected value. [Make Short Revision History Visible](the-technical-guide-to-kubernetes-rightsizing/chapter-3.md#make-short-revision-history-visible) explains why a few minutes of measurements can describe only those few minutes, so the dashboard keeps both the available time and the percentage visible.
+
 | Dashboard | Prometheus query result |
 |---|---|
-| ![CPU coverage shows 100% in Review context](image-5.png) | ![Prometheus returns 1, which Grafana displays as 100%](image-11.png) |
+| ![CPU coverage shows 100% in Review context](assets/dashboard-review-context.png) | ![Prometheus returns 1, which Grafana displays as 100%](assets/prometheus-cpu-coverage.png) |
 
 Together, the six cards say that two Pods ran during the selected hour, both belong to one ReplicaSet, both ran on one node, and Prometheus has a complete hour of CPU values for both Pods. The next section can therefore compare their CPU and memory values without a Pod with less data changing the result.
 
