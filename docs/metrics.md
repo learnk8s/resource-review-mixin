@@ -1,34 +1,299 @@
 # How to read the dashboard
 
-Imagine that you open the dashboard for a Deployment called `checkout`. Three Pods are running now, but the dashboard says it observed five Pod executions during the selected week. The other two may have been replaced during a rollout, restart, or node change, and their CPU, memory, and failure history still belongs to the review.
+## Open the local example
 
-The mixin records each Pod UID separately before it calculates revision and workload summaries.
+`make dev` creates a Deployment called `review-sample` for this walkthrough. Open the [Kubernetes Resource Review dashboard](http://127.0.0.1:3000/d/learnk8s-resource-review/kubernetes-resource-review), select `resource-review-test` as the namespace, `deployment` as the workload kind, and `review-sample` as the workload. Leave revision, Pod, and container set to `All`, then choose `Last 1 hour` in the time picker.
 
-## Check how much data you have
+![Kubernetes Resource Review filters set to the local review-sample Deployment](image.png)
 
-Before comparing CPU or memory, check the current Pod count, observed execution count, selected revision count, observed node count, shortest CPU history, and minimum sample coverage.
+## Start with Review context
 
-- **Current Pods** is the number of Pod UIDs that Kubernetes exposes now. It answers “how many Pod executions can I find at this moment?” rather than “how many replicas should exist?”
+![Review context showing two current Pods, two Pod executions, one revision, one node, one hour of history, and complete CPU coverage](image-5.png)
 
-- **Observed executions** includes every immutable Pod UID found in the selected time range. Suppose `Current Pods` is 3 and `Observed executions` is 5. Two older Pod executions contributed evidence during the range but no longer exist. Keeping those executions separate prevents an old Pod's history from moving to its replacement.
+Start with the Deployment that `make dev` created:
 
-- **Selected revisions** counts the revision identities in the current filter. A Deployment revision usually maps to a ReplicaSet. If two old Pods belong to `checkout-7d8f` and one new Pod belongs to `checkout-6bc4`, the dashboard reports two revisions and keeps their evidence separate.
-- **Observed nodes** counts the nodes that ran the selected Pod executions. If one replica differs and it is the only row on `worker-2`, inspect CPU and memory pressure on `worker-2` and compare the other containers running there. The node count alone does not identify the cause.
+```bash
+kubectl get deployment review-sample \
+  -n resource-review-test \
+  -o custom-columns='NAME:.metadata.name,READY:.status.readyReplicas,DESIRED:.spec.replicas,IMAGE:.spec.template.spec.containers[0].image'
 
-- **Shortest CPU evidence** is the smallest amount of CPU history among the selected Pod executions. If the value is 20 minutes, the CPU statistics for at least one selected Pod cover only 20 minutes even when the dashboard range is seven days.
-
-- **Minimum coverage** compares recorded samples with the one-minute samples expected during the selected window.
-
-```text
-observed duration = sample count × 60 seconds
-coverage          = min(sample count / expected one-minute samples, 1)
+NAME            READY   DESIRED   IMAGE
+review-sample   2       2         busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
 ```
 
-If the window expects 60 samples and the least-observed replica has 45, minimum coverage is 75 percent. One quarter of the expected samples are missing. The Pod may have started late, Prometheus may have missed scrapes, a rule evaluation may have been delayed, or the backend may have downsampled the data.
+The Deployment asks for two Pods, and both are ready. The next command shows the two Pod objects behind that result:
+
+```bash
+kubectl get pods \
+  -n resource-review-test \
+  -l app=review-sample \
+  -o custom-columns='NAME:.metadata.name,UID:.metadata.uid,NODE:.spec.nodeName,STATUS:.status.phase'
+
+NAME                             UID                                    NODE                                  STATUS
+review-sample-85d7d6b6c6-cnp4v   33652669-a8b2-4b76-ba65-7629becb5834   resource-review-mixin-control-plane   Running
+review-sample-85d7d6b6c6-k2wxw   33d63449-e7b1-48f7-b55e-08a06865959b   resource-review-mixin-control-plane   Running
+```
+
+Kubernetes creates the Pod name suffixes and UIDs, so they will change when you recreate the local cluster.
+
+Open [Prometheus](http://127.0.0.1:9090) and run this query. It returns one line for each Pod and shows its name, UID, revision, node, container, and image:
+
+```promql
+resource_review:workload_revision_pod_container_info{
+  namespace="resource-review-test",
+  workload_type="deployment",
+  workload="review-sample"
+}
+```
+
+![Prometheus showing the two review-sample Pod names, UIDs, revision, and node](image-2.png)
+
+Grafana does not run `kubectl` or read the Kubernetes API. The information reaches the dashboard in these steps:
+
+1. kube-state-metrics reads the Pod, container, and owner fields from the Kubernetes API.
+2. Prometheus collects these four kube-state-metrics results:
+
+   ```promql
+   kube_pod_info{job="kube-state-metrics", namespace="resource-review-test", pod=~"review-sample-.*"}
+   ```
+
+   ```promql
+   kube_pod_container_info{job="kube-state-metrics", namespace="resource-review-test", pod=~"review-sample-.*"}
+   ```
+
+   ```promql
+   kube_pod_owner{job="kube-state-metrics", namespace="resource-review-test", pod=~"review-sample-.*"}
+   ```
+
+   ```promql
+   kube_replicaset_owner{job="kube-state-metrics", namespace="resource-review-test", replicaset="review-sample-85d7d6b6c6"}
+   ```
+
+3. Every minute, Prometheus puts the Pod name, UID, ReplicaSet, Deployment, node, container, and image on one line and saves it as `resource_review:workload_revision_pod_container_info`.
+4. Grafana adds one more `count(...)` around the first four queries below to turn their lines into the numbers shown on the cards. Run the queries as written here in Prometheus so you can see the Pod, revision, and node lines that Grafana counts.
+
+**Shortest history** and **CPU coverage** use CPU measurements instead. cAdvisor measures the CPU time used by each running container, Prometheus collects `container_cpu_usage_seconds_total`, and this query calculates the average CPU use over five minutes:
+
+```promql
+sum by (namespace, pod, container) (
+  rate(
+    container_cpu_usage_seconds_total{
+      job="kubelet",
+      metrics_path="/metrics/cadvisor",
+      namespace="resource-review-test",
+      pod=~"review-sample-.*",
+      container!="",
+      container!="POD",
+      image!=""
+    }[5m]
+  )
+)
+```
+
+Every minute, Prometheus adds the matching Pod name, UID, revision, and node, then saves the result as `resource_review:container_cpu_usage_cores:rate5m`. **Shortest history** and **CPU coverage** count those saved CPU values.
+
+### Current Pods
+
+```promql
+count by (cluster, namespace, pod, uid) (
+  resource_review:workload_revision_pod_container_info{
+    namespace=~"resource-review-test",
+    workload_type=~"deployment",
+    workload=~"review-sample",
+    revision=~".*",
+    pod=~".*",
+    container=~".*"
+  }
+)
+```
+
+The Prometheus result has two lines. One line has `pod="review-sample-85d7d6b6c6-cnp4v"` and its UID, and the other has `pod="review-sample-85d7d6b6c6-k2wxw"` and its UID. Grafana counts those two lines and shows **Current Pods = 2**.
+
+The earlier `kubectl get pods` command reads the current Pod objects directly from the Kubernetes API and shows the same two names and UIDs. It confirms the value, but Grafana does not run that command.
+
+| Dashboard | Prometheus query result |
+|---|---|
+| ![Current Pods shows 2 in Review context](image-6.png) | ![Prometheus returns the two current Pod names and UIDs](image-3.png) |
+
+### Pod executions
+
+```promql
+count by (cluster, namespace, pod, uid) (
+  max_over_time(
+    resource_review:workload_revision_pod_container_info{
+      namespace=~"resource-review-test",
+      workload_type=~"deployment",
+      workload=~"review-sample",
+      revision=~".*",
+      pod=~".*",
+      container=~".*"
+    }[1h]
+  )
+)
+```
+
+This query looks back over the selected hour instead of looking only at the Pods that exist now. Prometheus finds the same two Pod names and UIDs during that hour, so Grafana shows **Pod executions = 2**.
+
+Kubernetes removes a Pod object after the Pod is deleted, so `kubectl` cannot list every Pod UID that appeared during the last hour. Prometheus keeps the earlier values and supplies this card.
+
+| Dashboard | Prometheus query result |
+|---|---|
+| ![Pod executions shows 2 in Review context](image-1.png) | ![Prometheus returns the two Pod names and UIDs recorded during the last hour](image-4.png) |
+
+### Revisions
+
+Run this query in Prometheus:
+
+```promql
+count by (cluster, namespace, workload_type, workload, revision, revision_source) (
+  max_over_time(
+    resource_review:workload_revision_pod_container_info{
+      namespace=~"resource-review-test",
+      workload_type=~"deployment",
+      workload=~"review-sample",
+      revision=~".*",
+      pod=~".*",
+      container=~".*"
+    }[1h]
+  )
+)
+```
+
+| Dashboard | Prometheus query result |
+|---|---|
+| ![Revisions shows 1 in Review context](image-9.png) | ![Prometheus returns one revision shared by two Pods](image-7.png) |
+
+Both Pods have `workload="review-sample"`, `revision="review-sample-85d7d6b6c6"`, and `revision_source="replicaset"`. The query puts them on one line with the value `2`, meaning that two Pods belong to that revision. Grafana counts the one revision line and shows **Revisions = 1**.
+
+The current ReplicaSet can also be checked through the Kubernetes API:
+
+```bash
+kubectl get rs \
+  -n resource-review-test \
+  -l app=review-sample \
+  -o custom-columns='NAME:.metadata.name,OWNER:.metadata.ownerReferences[0].name,DESIRED:.spec.replicas,READY:.status.readyReplicas'
+
+NAME                       OWNER           DESIRED   READY
+review-sample-85d7d6b6c6   review-sample   2         2
+```
+
+This confirms the one current ReplicaSet. The Grafana card still comes from Prometheus because Prometheus can also keep revisions that disappeared during the selected hour.
+
+### Nodes
+
+Run this query in Prometheus:
+
+```promql
+count by (cluster, namespace, node) (
+  max_over_time(
+    resource_review:workload_revision_pod_container_info{
+      namespace=~"resource-review-test",
+      workload_type=~"deployment",
+      workload=~"review-sample",
+      revision=~".*",
+      pod=~".*",
+      container=~".*"
+    }[1h]
+  )
+)
+```
+
+Both Pods have `node="resource-review-mixin-control-plane"`. The query puts them on one line with the value `2`, meaning that two Pods ran on that node. Grafana counts the one node line and shows **Nodes = 1**.
+
+The current Pod-to-node assignments can also be checked through the Kubernetes API:
+
+```bash
+kubectl get pods \
+  -n resource-review-test \
+  -l app=review-sample \
+  -o custom-columns='POD:.metadata.name,NODE:.spec.nodeName'
+
+POD                              NODE
+review-sample-85d7d6b6c6-cnp4v   resource-review-mixin-control-plane
+review-sample-85d7d6b6c6-k2wxw   resource-review-mixin-control-plane
+```
+
+This confirms the one current node. The Grafana card comes from Prometheus so that a node used earlier in the selected hour remains visible after the Pod disappears.
+
+| Dashboard | Prometheus query result |
+|---|---|
+| ![Nodes shows 1 in Review context](image-10.png) | ![Prometheus returns one node shared by two Pods](image-8.png) |
+
+### Shortest history
+
+```promql
+min(
+  count_over_time(
+    resource_review:container_cpu_usage_cores:rate5m{
+      namespace=~"resource-review-test",
+      workload_type=~"deployment",
+      workload=~"review-sample",
+      revision=~".*",
+      pod=~".*",
+      container=~".*"
+    }[1h]
+  )
+) * 60
+```
+
+Prometheus saved 60 CPU values for each Pod during the selected hour. Grafana takes the Pod with the smaller count and multiplies its 60 values by the one-minute recording interval. The result is 3,600 seconds, which Grafana shows as **Shortest history = 1 hour**.
+
+The Kubernetes API does not store this one-hour CPU history, so there is no matching `kubectl` command.
+
+### CPU coverage
+
+Run this query in Prometheus:
+
+```promql
+clamp_max(
+  min(
+    count_over_time(
+      resource_review:container_cpu_usage_cores:rate5m{
+        namespace=~"resource-review-test",
+        workload_type=~"deployment",
+        workload=~"review-sample",
+        revision=~".*",
+        pod=~".*",
+        container=~".*"
+      }[1h]
+    )
+  ) / 60,
+  1
+)
+```
+
+The selected hour contains 60 one-minute slots, and Prometheus has 60 CPU values for both Pods. The query divides the smaller count, 60, by the expected count, 60, so Prometheus returns `1`. Grafana displays that `0–1` ratio as a percentage, which turns `1` into **CPU coverage = 100%**.
+
+The Kubernetes API does not count Prometheus samples, so there is no matching `kubectl` command for this card either.
+
+| Dashboard | Prometheus query result |
+|---|---|
+| ![CPU coverage shows 100% in Review context](image-5.png) | ![Prometheus returns 1, which Grafana displays as 100%](image-11.png) |
+
+Together, the six cards say that two Pods ran during the selected hour, both belong to one ReplicaSet, both ran on one node, and Prometheus has a complete hour of CPU values for both Pods. The next section can therefore compare their CPU and memory values without a Pod with less data changing the result.
 
 ## Compare Pods before reading the summary
 
-Consider three Pods with average CPU usage of `0.10`, `0.12`, and `0.80` cores. A workload average of `0.34` cores hides the third replica. The main tables keep all three rows visible and retain the Pod, revision, node, and container that produced each value. The revision summary is calculated after these per-Pod statistics exist. When the summary needs one value, it keeps `0.80` rather than averaging the three replicas together.
+<!-- Add a screenshot of CPU by Pod execution and Memory and failures by Pod execution here. -->
+
+The **CPU by Pod execution** table reads the same CPU recording rule three times over the selected hour:
+
+```promql
+avg_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace="resource-review-test", workload_type="deployment", workload="review-sample"}[1h])
+
+quantile_over_time(0.95, resource_review:container_cpu_usage_cores:rate5m{namespace="resource-review-test", workload_type="deployment", workload="review-sample"}[1h])
+
+max_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace="resource-review-test", workload_type="deployment", workload="review-sample"}[1h])
+```
+
+The queries return one row for each of the two Pod UIDs:
+
+| Pod | Average CPU | p95 CPU | Maximum CPU |
+|---|---:|---:|---:|
+| `review-sample-85d7d6b6c6-cnp4v` | 49.63m | 49.98m | 49.99m |
+| `review-sample-85d7d6b6c6-k2wxw` | 49.50m | 49.93m | 49.95m |
+
+The two Pods used almost the same CPU during this hour. The table still keeps them separate because a single workload average would hide the difference if one Pod later used much more CPU than the other. The revision summary is calculated only after these per-Pod values exist.
 
 ## Check CPU usage, limits, and throttling
 
