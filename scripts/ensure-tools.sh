@@ -78,7 +78,7 @@ checksum() {
     promtool:linux:amd64) printf '%s' 'f665c6da19eb7ba399c915d30c7d9793c9b417bf8a749b504bc470678631478d' ;;
     promtool:linux:arm64) printf '%s' '077f3781ab7245dc04c9a3c9b78ba120fc8e41aa0dc97489b0af67247e50ba83' ;;
     promtool:darwin:amd64) printf '%s' 'a14307b9726e66cadb81be9a544732623af26dabeb7702c987aa9c3c062ada34' ;;
-    promtool:darwin:arm64) printf '%s' 'a9623f7f4fe65b1b171b423c1a72bbf23df41a171dcb33e7dd302af80dc01c' ;;
+    promtool:darwin:arm64) printf '%s' 'a9623f7f4fe65b1b171b423c1a72bbf23dfdf41a171dcb33e7dd302af80dc01c' ;;
     pint:linux:amd64) printf '%s' 'f0e91491f10adbb9bf2bdefd213eb63c92685ae4565aee340b9eec6fb7ff4049' ;;
     pint:linux:arm64) printf '%s' 'fd9709d755c1e1c01526c9957fb4a43d58aa1ba2f46da5ef4f83bfb05b52b6a8' ;;
     pint:darwin:amd64) printf '%s' '03dd3d715c63022f4f02bf3f8f164b2db193f3ebf479aa9928912ec7fef0f358' ;;
