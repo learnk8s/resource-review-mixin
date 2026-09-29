@@ -14,18 +14,20 @@ KUBE_PROMETHEUS_STACK_VERSION=${KUBE_PROMETHEUS_STACK_VERSION:-91.4.0}
 KEEP_CLUSTER=${KEEP_CLUSTER:-false}
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 port_forward_pids=()
+cluster_created=false
 
 cleanup() {
   for pid in "${port_forward_pids[@]}"; do
     kill "$pid" >/dev/null 2>&1 || true
   done
-  if [[ "$KEEP_CLUSTER" != true ]]; then
+  if [[ "$cluster_created" == true && "$KEEP_CLUSTER" != true ]]; then
     "$KIND" delete cluster --name "$CLUSTER_NAME" >/dev/null 2>&1 || true
   fi
 }
 trap cleanup EXIT
 
-if "$KIND" get clusters | grep --fixed-strings --line-regexp --quiet "$CLUSTER_NAME"; then
+clusters=$("$KIND" get clusters)
+if grep --fixed-strings --line-regexp --quiet "$CLUSTER_NAME" <<<"$clusters"; then
   echo "Refusing to replace existing kind cluster: $CLUSTER_NAME" >&2
   exit 1
 fi
@@ -107,6 +109,7 @@ EOF
   fi
   exit 1
 fi
+cluster_created=true
 printf '%s\n' "$kind_output"
 "$DOCKER" pull busybox:1.36
 "$KIND" load docker-image busybox:1.36 --name "$CLUSTER_NAME"
