@@ -282,7 +282,7 @@ Together, the six cards say that two Pods ran during the selected hour, both bel
 
 <!-- Add a screenshot of CPU by Pod execution and Memory and failures by Pod execution here. -->
 
-The **CPU by Pod execution** table reads the same CPU recording rule three times over the selected hour:
+The **CPU by Pod execution** table reads the same CPU recording rule three times over the selected hour, then keeps throttled-period, throttled-time, and optional CPU-pressure evidence on the same Pod row:
 
 ```promql
 avg_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace="resource-review-test", workload_type="deployment", workload="review-sample"}[1h])
@@ -334,7 +334,7 @@ The ratio disappears when the request is missing or configured as zero.
 
 - **CPU pressure** uses Pressure Stall Information, or PSI, to measure time that runnable tasks spent waiting for CPU. The [Linux PSI interface](https://docs.kernel.org/accounting/psi.html) reports waiting time without assigning a cause. Compare the same time window with CPU throttling, the CPU limit, node pressure, and application latency.
 
-An empty panel means Prometheus received no `container_pressure_cpu_waiting_seconds_total` series matching the selected labels; run the raw query to confirm whether the source metric exists.
+An empty CPU-pressure or throttled-time value means Prometheus received no matching source series. In particular, some kubelet/cAdvisor versions expose throttled periods without exposing `container_cpu_cfs_throttled_seconds_total`; the dashboard reports that evidence as unavailable instead of substituting zero.
 
 ## Check memory usage and limits
 
@@ -365,6 +365,8 @@ The data may be missing because the node does not expose the metric, Prometheus 
 The warning table explains what is missing or why a value could not be calculated:
 
 - **CPU or memory usage unavailable:** Prometheus has no usage samples.
+- **CPU throttled-period or throttled-time evidence unavailable:** kubelet/cAdvisor did not expose the matching counter for this container and time range.
+- **Total memory, working set, RSS, or cache unavailable:** cAdvisor did not expose that memory view for this container and time range.
 - **CPU or memory pressure unavailable:** the node does not expose the optional pressure metric.
 - **Request or limit not configured:** the container does not have that value in its resource configuration.
 - **OOM or restart counter unavailable:** Prometheus has no matching counter for the container.
@@ -372,6 +374,8 @@ The warning table explains what is missing or why a value could not be calculate
 - **Revision falls back to Pod UID:** the mixin could not find a shared controller revision.
 - **Multiple immutable images:** one revision contains more than one image ID.
 - **CPU sample coverage below 80 percent:** Prometheus collected fewer than 80 percent of the expected samples.
+
+The revision summary keeps observed revision age, maximum throttled-period ratio, maximum throttled-time rate, maximum CPU pressure, maximum memory pressure, cAdvisor OOM events, Kubernetes `OOMKilled` state, and restarts alongside requests, limits, usage statistics, replica counts, and observation duration. Optional or unavailable evidence remains an empty cell and receives a corresponding warning where the absence can be distinguished from a measured zero.
 
 ## Find the Pod behind each value
 

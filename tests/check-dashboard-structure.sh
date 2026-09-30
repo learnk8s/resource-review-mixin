@@ -4,13 +4,7 @@ set -euo pipefail
 
 JQ=${JQ:-jq}
 DASHBOARD=${DASHBOARD:-generated/resource-review.json}
-EXPECT_CLUSTER=${EXPECT_CLUSTER:-false}
-
-if [[ "$EXPECT_CLUSTER" == true ]]; then
-  expected_variables='["datasource","cluster","namespace","workload_type","workload","revision","pod","container"]'
-else
-  expected_variables='["datasource","namespace","workload_type","workload","revision","pod","container"]'
-fi
+expected_variables='["datasource","cluster","namespace","workload_type","workload","revision","pod","container"]'
 
 # The dollar-prefixed names below belong to jq and Grafana, not the shell.
 # shellcheck disable=SC2016
@@ -23,6 +17,8 @@ fi
   and .schemaVersion >= 39
   and .version >= 8
   and ([.templating.list[].name] == $expected_variables)
+  and ([.templating.list[] | select(.name == "cluster" and .label == "Cluster" and .hide == 0)] | length == 1)
+  and ([.templating.list[] | select(.name == "revision" and .label == "Workload revision")] | length == 1)
   and (all($panels[] | select(.type != "row"); (.description // "") | length > 0))
   and (all($panels[] | select(.type == "table");
     .fieldConfig.defaults.unit != null
@@ -44,6 +40,17 @@ fi
   and ([$panels[] | select(.id == 62).title] == ["Peak memory as % of limit"])
   and ([$panels[] | select(.id == 52).targets[].expr | select(contains("CPU PSI unavailable"))] | length == 1)
   and ([$panels[] | select(.id == 52).targets[].expr | select(contains("Memory PSI unavailable"))] | length == 1)
+  and ([$panels[] | select(.id == 52).targets[].expr | select(contains("CPU throttled-period evidence unavailable"))] | length == 1)
+  and ([$panels[] | select(.id == 52).targets[].expr | select(contains("CPU throttled-time evidence unavailable"))] | length == 1)
+  and ([ $panels[] | select(.id == 41).targets[].legendFormat ] | index("Max CPU pressure") != null)
+  and ([ $panels[] | select(.id == 41).targets[].legendFormat ] | index("Max throttled time") != null)
+  and ([ $panels[] | select(.id == 42).targets[].legendFormat ] | index("OOMKilled") != null)
+  and ([ $panels[] | select(.id == 51).targets[].legendFormat ] | index("Maximum throttled time") != null)
+  and ([ $panels[] | select(.id == 51).targets[].legendFormat ] | index("Maximum CPU pressure") != null)
+  and ([ $panels[] | select(.id == 51).targets[].legendFormat ] | index("Maximum memory pressure") != null)
+  and ([ $panels[] | select(.id == 51).targets[].legendFormat ] | index("OOMKilled") != null)
+  and ([ $panels[] | select(.id == 51).targets[].legendFormat ] | index("Observed revision age") != null)
+  and ([.links[].title] | index("Open-source project sponsored by StormForge") != null)
   and ([$expressions[] | select(contains("or vector(0)"))] | length == 0)
   and ([.panels[] | (.gridPos.y + .gridPos.h)] | max <= 40)
   and (all(.panels[] | select(.id == 20 or .id == 30 or .id == 50 or .id == 70); .collapsed == true and (.panels | length > 0)))

@@ -48,10 +48,21 @@ function(config)
   local summaryCpuAverage = summarize(average(cpuUsage));
   local summaryCpuP95 = summarize(p95(cpuUsage));
   local summaryCpuMax = summarize(maximum(cpuUsage));
+  local summaryCpuThrottled = summarize(maximum(cpuThrottled));
+  local summaryCpuThrottledTime = summarize(maximum(cpuThrottledTime));
+  local summaryCpuPressure = summarize(maximum(cpuPressure));
   local summaryMemoryRequest = summarize(last(memoryRequest));
   local summaryMemoryLimit = summarize(last(memoryLimit));
   local summaryMemoryAverage = summarize(average(memoryWss));
   local summaryMemoryMax = summarize(maximum(memoryWss));
+  local summaryMemoryPressure = summarize(maximum(memoryPressure));
+  local summaryOomKilled = summarize(oomKilled);
+  local summaryRevisionAge = 'time() - min by (%s) ((%s) * on (%s, namespace, pod, uid) group_left(container, image, image_id) (%s))' % [
+    summaryLabels,
+    maximum(created),
+    clusterLabel,
+    identity,
+  ];
   local summaryCpuDifference = '(%s) - (%s)' % [summaryCpuRequest, summaryCpuP95];
   local summaryMemoryDifference = '(%s) - (%s)' % [summaryMemoryRequest, summaryMemoryMax];
   local warning(expr, message) = 'label_replace((%s), "warning", "%s", "container", ".*")' % [expr, message];
@@ -61,7 +72,12 @@ function(config)
   );
   local warnings = std.join(' or ', [
     missingEvidence(maximum(cpuUsage), 'CPU usage unavailable'),
+    missingEvidence(maximum(cpuThrottled), 'CPU throttled-period evidence unavailable'),
+    missingEvidence(maximum(cpuThrottledTime), 'CPU throttled-time evidence unavailable'),
+    missingEvidence(maximum(memoryUsage), 'Total memory unavailable'),
     missingEvidence(maximum(memoryWss), 'Memory working set unavailable'),
+    missingEvidence(maximum(memoryRss), 'Memory RSS unavailable'),
+    missingEvidence(maximum(memoryCache), 'Memory cache unavailable'),
     missingEvidence(maximum(cpuPressure), 'CPU PSI unavailable (optional)'),
     missingEvidence(maximum(memoryPressure), 'Memory PSI unavailable (optional)'),
     missingEvidence(last(cpuRequest), 'CPU request not configured'),
@@ -419,6 +435,13 @@ function(config)
       url: 'https://github.com/learnk8s/resource-review-mixin/blob/main/docs/metrics.md',
       targetBlank: true,
     },
+    {
+      title: 'Open-source project sponsored by StormForge',
+      type: 'link',
+      icon: 'external link',
+      url: 'https://stormforge.io/',
+      targetBlank: true,
+    },
   ])
   + g.dashboard.withAnnotations([])
   + g.dashboard.withVariables(
@@ -434,12 +457,17 @@ function(config)
     ]
     + (if config.showMultiCluster then [
          queryVariable('cluster', 'Cluster', 'label_values(resource_review:workload_revision_pod_container_info, %s)' % clusterLabel),
-       ] else [])
+       ] else [
+         variable.constant.new('cluster', config.singleClusterName)
+         + variable.constant.generalOptions.withLabel('Cluster')
+         + variable.constant.generalOptions.withCurrent(config.singleClusterName)
+         + variable.constant.generalOptions.showOnDashboard.withLabelAndValue(),
+       ])
     + [
       queryVariable('namespace', 'Namespace', 'label_values(resource_review:workload_revision_pod_container_info{%s}, namespace)' % (if config.showMultiCluster then '%s=~"$cluster"' % clusterLabel else ''), false),
       queryVariable('workload_type', 'Workload kind', 'label_values(resource_review:workload_revision_pod_container_info{%snamespace=~"$namespace"}, workload_type)' % clusterSelector, false),
       queryVariable('workload', 'Workload', 'label_values(resource_review:workload_revision_pod_container_info{%snamespace=~"$namespace", workload_type=~"$workload_type"}, workload)' % clusterSelector, false),
-      queryVariable('revision', 'Revision', 'label_values(resource_review:workload_revision_pod_container_info{%snamespace=~"$namespace", workload_type=~"$workload_type", workload=~"$workload"}, revision)' % clusterSelector),
+      queryVariable('revision', 'Workload revision', 'label_values(resource_review:workload_revision_pod_container_info{%snamespace=~"$namespace", workload_type=~"$workload_type", workload=~"$workload"}, revision)' % clusterSelector),
       queryVariable('pod', 'Pod', 'label_values(resource_review:workload_revision_pod_container_info{%snamespace=~"$namespace", workload_type=~"$workload_type", workload=~"$workload", revision=~"$revision"}, pod)' % clusterSelector),
       queryVariable('container', 'Container', 'label_values(resource_review:workload_revision_pod_container_info{%snamespace=~"$namespace", workload_type=~"$workload_type", workload=~"$workload", revision=~"$revision", pod=~"$pod"}, container)' % clusterSelector),
     ]
@@ -492,15 +520,19 @@ function(config)
       target('B', p95(cpuUsage), 'p95 CPU', true, 'table'),
       target('C', maximum(cpuUsage), 'Max CPU', true, 'table'),
       target('D', maximum(cpuThrottled), 'Max throttling', true, 'table'),
-      target('E', 'count_over_time(' + cpuUsage + '[$__range]) * 60', 'History', true, 'table'),
-      target('F', 'clamp_max(count_over_time(' + cpuUsage + '[$__range]) / ($__range_s / 60), 1)', 'Coverage', true, 'table'),
+      target('E', maximum(cpuThrottledTime), 'Max throttled time', true, 'table'),
+      target('F', maximum(cpuPressure), 'Max CPU pressure', true, 'table'),
+      target('G', 'count_over_time(' + cpuUsage + '[$__range]) * 60', 'History', true, 'table'),
+      target('H', 'clamp_max(count_over_time(' + cpuUsage + '[$__range]) / ($__range_s / 60), 1)', 'Coverage', true, 'table'),
     ], [
       { ref: 'A', name: 'Avg CPU', unit: 'short', width: 90 },
       { ref: 'B', name: 'p95 CPU', unit: 'short', width: 80 },
       { ref: 'C', name: 'Max CPU', unit: 'short', width: 90 },
       { ref: 'D', name: 'Max throttling', unit: 'percentunit', width: 110 },
-      { ref: 'E', name: 'History', unit: 's', width: 90 },
-      { ref: 'F', name: 'Coverage', unit: 'percentunit', width: 90 },
+      { ref: 'E', name: 'Max throttled time', unit: 's', width: 125 },
+      { ref: 'F', name: 'Max CPU pressure', unit: 'percentunit', width: 120 },
+      { ref: 'G', name: 'History', unit: 's', width: 90 },
+      { ref: 'H', name: 'Coverage', unit: 'percentunit', width: 90 },
     ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id'], compact=true),
     table(42, 'Memory and failures by Pod execution', 'Average and maximum working set remain per replica. Total maximum, pressure, OOM events, and restarts are separate signals and do not identify application impact by themselves.', grid(0, 25, 24, 8), [
       target('A', average(memoryWss), 'Avg working set', true, 'table'),
@@ -509,6 +541,7 @@ function(config)
       target('D', maximum(memoryPressure), 'Max pressure', true, 'table'),
       target('E', oomEvents, 'OOM', true, 'table'),
       target('F', restarts, 'Restarts', true, 'table'),
+      target('G', oomKilled, 'OOMKilled', true, 'table'),
     ], [
       { ref: 'A', name: 'Avg working set', unit: 'bytes', width: 115 },
       { ref: 'B', name: 'Max working set', unit: 'bytes', width: 115 },
@@ -516,6 +549,7 @@ function(config)
       { ref: 'D', name: 'Max pressure', unit: 'percentunit', width: 105 },
       { ref: 'E', name: 'OOM', unit: 'short', width: 65 },
       { ref: 'F', name: 'Restarts', unit: 'short', width: 75 },
+      { ref: 'G', name: 'OOMKilled', unit: 'bool', width: 90 },
     ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id'], compact=true),
 
     row(50, 'Revision summary and evidence warnings', 33, true, [
@@ -535,13 +569,18 @@ function(config)
         target('L', 'clamp_max(min by (' + summaryLabels + ') (count_over_time(' + cpuUsage + '[$__range])) / ($__range_s / 60), 1)', 'Minimum coverage', true, 'table'),
         target('M', 'sum by (' + summaryLabels + ') (' + oomEvents + ')', 'OOM events', true, 'table'),
         target('N', 'sum by (' + summaryLabels + ') (' + restarts + ')', 'Restarts', true, 'table'),
-        target('O', 'max by (' + summaryLabels + ') (' + maximum(cpuThrottled) + ')', 'Maximum throttling', true, 'table'),
+        target('O', summaryCpuThrottled, 'Maximum throttling', true, 'table'),
         target('P', '(' + summaryCpuMax + ') / (' + summaryCpuLimit + ') and on (' + summaryLabels + ') (' + summaryCpuLimit + ' > 0)', 'CPU max as % of limit', true, 'table'),
         target('Q', '(' + summaryMemoryMax + ') / (' + summaryMemoryLimit + ') and on (' + summaryLabels + ') (' + summaryMemoryLimit + ' > 0)', 'Memory max as % of limit', true, 'table'),
         target('R', summaryCpuDifference, 'CPU request minus p95', true, 'table'),
         target('S', '((' + summaryCpuDifference + ') / (' + summaryCpuRequest + ')) and on (' + summaryLabels + ') (' + summaryCpuRequest + ' > 0)', 'CPU difference ratio', true, 'table'),
         target('T', summaryMemoryDifference, 'Memory request minus maximum', true, 'table'),
         target('U', '((' + summaryMemoryDifference + ') / (' + summaryMemoryRequest + ')) and on (' + summaryLabels + ') (' + summaryMemoryRequest + ' > 0)', 'Memory difference ratio', true, 'table'),
+        target('W', summaryCpuThrottledTime, 'Maximum throttled time', true, 'table'),
+        target('X', summaryCpuPressure, 'Maximum CPU pressure', true, 'table'),
+        target('Y', summaryMemoryPressure, 'Maximum memory pressure', true, 'table'),
+        target('Z', summaryOomKilled, 'OOMKilled', true, 'table'),
+        target('AA', summaryRevisionAge, 'Observed revision age', true, 'table'),
       ], [
         { ref: 'A', name: 'CPU request', unit: 'short' },
         { ref: 'B', name: 'CPU limit', unit: 'short' },
@@ -565,6 +604,11 @@ function(config)
         { ref: 'S', name: 'CPU difference ratio', unit: 'percentunit' },
         { ref: 'T', name: 'Memory request minus maximum', unit: 'bytes' },
         { ref: 'U', name: 'Memory difference ratio', unit: 'percentunit' },
+        { ref: 'W', name: 'Maximum throttled time', unit: 's' },
+        { ref: 'X', name: 'Maximum CPU pressure', unit: 'percentunit' },
+        { ref: 'Y', name: 'Maximum memory pressure', unit: 'percentunit' },
+        { ref: 'Z', name: 'OOMKilled', unit: 'bool' },
+        { ref: 'AA', name: 'Observed revision age', unit: 's' },
       ]),
       table(52, 'Evidence quality and configuration warnings', 'Warnings preserve missing evidence instead of substituting zero. Optional PSI warnings are informational; revision_source=pod_uid is a conservative boundary rather than a claim about an application release.', grid(0, 47, 24, 9), [
         target('A', warnings, 'Warning', true, 'table'),
@@ -657,7 +701,7 @@ function(config)
       table(11, 'Revision and execution identity', 'Pod UID and immutable image ID preserve provenance. revision_source=pod_uid is a conservative fallback and intentionally keeps each Pod execution separate rather than mixing uncertain revisions.', grid(0, 37, 24, 8), [
         target('A', 'count by (%s, namespace, workload_type, workload, revision, revision_source, image, image_id, pod, uid, container, node) (%s)' % [clusterLabel, identity], 'Identity', true, 'table'),
       ], [{ ref: 'A', name: 'Identity samples', unit: 'short' }], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload']),
-      stat(13, 'Oldest observed Pod execution', 'Age of the oldest selected Pod execution. This is execution context, not a claim about controller or application revision age.', grid(0, 45, 6, 6), [
+      stat(13, 'Observed revision age', 'Elapsed time since the earliest observed Pod creation in the selected revision set. For a Pod-UID fallback revision, this is the Pod execution age.', grid(0, 45, 6, 6), [
         target('A', 'time() - min(max_over_time(%s[$__range]))' % created, 'Age', true),
       ], 's'),
       table(16, 'Requests, limits, and QoS in this range', 'The last observed value is shown per immutable Pod execution. An absent request or limit remains absent. QoS is Kubernetes-derived and follows from the complete Pod resource configuration.', grid(6, 45, 18, 8), [

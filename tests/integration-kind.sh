@@ -74,6 +74,28 @@ wait_for_query_value() {
   return 1
 }
 
+wait_for_query_max() {
+  local query=$1
+  local description=$2
+  local maximum=$3
+  local response value
+
+  for _ in $(seq 1 90); do
+    response=$("$CURL" --get --silent --show-error \
+      --data-urlencode "query=$query" \
+      http://127.0.0.1:19090/api/v1/query || true)
+    value=$("$JQ" -r '.data.result[0].value[1] // ""' <<<"$response" 2>/dev/null || true)
+    if awk -v value="$value" -v maximum="$maximum" 'BEGIN { exit !(value != "" && value <= maximum) }'; then
+      echo "Verified: $description ($value <= $maximum)"
+      return 0
+    fi
+    sleep 10
+  done
+
+  echo "Timed out waiting for: $description (maximum $maximum, got ${value:-no result})" >&2
+  return 1
+}
+
 if ! kind_output=$("$KIND" create cluster --name "$CLUSTER_NAME" --image "$KIND_NODE_IMAGE" --wait 120s --retain 2>&1); then
   printf '%s\n' "$kind_output" >&2
   node_logs=$("$DOCKER" logs "${CLUSTER_NAME}-control-plane" 2>&1 || true)
@@ -188,5 +210,9 @@ wait_for_query \
   'max(resource_review:container_restarts_total{namespace="resource-review-test",workload="failure-sample"})' \
   'the controlled failure causes a container restart' \
   1
+wait_for_query_max \
+  'count({__name__=~"resource_review:.*"}) / count(resource_review:workload_revision_pod_container_info)' \
+  'the active recording-rule series budget stays bounded per container' \
+  22
 
 echo "Integration passed on Kubernetes ${KIND_NODE_IMAGE#*:} with kube-prometheus-stack $KUBE_PROMETHEUS_STACK_VERSION"

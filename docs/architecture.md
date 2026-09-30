@@ -86,6 +86,8 @@ clusters × retained Pod executions × containers × immutable image identities
 
 A longer [Prometheus retention period](https://prometheus.io/docs/prometheus/latest/storage/#operational-aspects) keeps more short-lived Job executions, and each one adds series with its own complete set of labels. Before you deploy the mixin across a fleet, count those series in a cluster that resembles the clusters where you plan to use it.
 
+At one evaluation timestamp, the rule group can produce up to 20 container-level series plus two Pod-level identity series. Optional or unconfigured metric families produce fewer series. Retention keeps the historical label sets of replaced Pods, so active-series counts alone do not estimate the complete 30-day storage cost of a high-churn cluster.
+
 - Count the series produced by the recording rules at the workload scale you expect.
 - Select one namespace and workload for each Grafana review.
 - Keep Prometheus samples for the same length of time that you need to review.
