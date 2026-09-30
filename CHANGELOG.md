@@ -12,6 +12,7 @@ This file tells users what changed in each release. It follows [Keep a Changelog
 - The repository uses [Jsonnet](https://jsonnet.org/) and then checks the dashboard, Kubernetes files, and their queries for mistakes.
 - The dashboard includes a Cluster context control for single-cluster installations and a metric-backed Cluster picker when multi-cluster labels are configured.
 - The revision review table includes throttled time, CPU and memory pressure, Kubernetes `OOMKilled` state, and observed revision age.
+- The Workload Context section now shows current revision and image, replica count, revision age, requests, limits, and observation history together instead of requiring the reader to infer current rows from the historical summary.
 - StormForge sponsorship is attributed in the dashboard and project documentation.
 
 ### Changed
