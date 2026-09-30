@@ -36,6 +36,8 @@
         max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
           sum by (cluster, namespace, pod, container) (
           rate(container_cpu_usage_seconds_total{job="kubelet", metrics_path="/metrics/cadvisor", container!="", container!="POD", image!=""}[5m])
+          and
+          container_cpu_usage_seconds_total{job="kubelet", metrics_path="/metrics/cadvisor", container!="", container!="POD", image!=""}
         )
         
           * on (cluster, namespace, pod, container)

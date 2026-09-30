@@ -330,9 +330,13 @@ function(config)
           },
           {
             record: 'resource_review:container_cpu_usage_cores:rate5m',
+            // Match the full raw series before aggregation. Range functions
+            // still return rates after an old container's counter goes stale.
             expr: joinCadvisorIdentity(|||
               sum by (%(clusterLabel)s, namespace, pod, container) (
                 rate(container_cpu_usage_seconds_total{%(cadvisorSelector)s, container!="", container!="POD", image!=""}[5m])
+                and
+                container_cpu_usage_seconds_total{%(cadvisorSelector)s, container!="", container!="POD", image!=""}
               )
             ||| % config),
           },
