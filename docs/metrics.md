@@ -6,11 +6,11 @@
 
 ![Kubernetes Resource Review filters set to the local review-sample Deployment](assets/dashboard-review-sample-filters.png)
 
-## Start with Review context
+## Workload Context
 
-This section accompanies [Chapter 3: Collecting Container, Runtime, and Kubernetes Metrics](the-technical-guide-to-kubernetes-rightsizing/chapter-3.md) in [The Technical Guide to Kubernetes Rightsizing](the-technical-guide-to-kubernetes-rightsizing/README.md). The chapter says to keep the Pod, revision, node, and available history beside each CPU and memory value; the local `review-sample` Deployment below shows where those details appear in Kubernetes, Prometheus, and Grafana.
+This section accompanies [Chapter 3: Collecting Container, Runtime, and Kubernetes Metrics](the-technical-guide-to-kubernetes-rightsizing/chapter-3.md) in [The Technical Guide to Kubernetes Rightsizing](the-technical-guide-to-kubernetes-rightsizing/README.md). The chapter explains why a CPU or memory number is useful only when you can also see which workload and revision produced it, which image is running, how many Pods are running, what requests and limits are set, and how much history Prometheus has. The local `review-sample` Deployment lets you follow those details from Kubernetes to Prometheus and then to Grafana.
 
-![Review context showing two current Pods, two Pod executions, one revision, one node, one hour of history, and complete CPU coverage](assets/dashboard-review-context.png)
+![Workload Context showing the current Pod count, Pod executions, revisions, nodes, shortest history, CPU coverage, and the current workload configuration table](image.png)
 
 Start with the Deployment that `make dev` created:
 
@@ -96,6 +96,30 @@ Every minute, Prometheus adds the matching Pod name, UID, revision, and node, th
 
 The book describes these two inputs in [Add the State Kubernetes Knows](the-technical-guide-to-kubernetes-rightsizing/chapter-3.md#add-the-state-kubernetes-knows): cAdvisor supplies the CPU measurement, while kube-state-metrics supplies the Pod UID, node, image, and owner that tell us which container produced it. [How cAdvisor turns cgroups into container metrics](the-technical-guide-to-kubernetes-rightsizing/chapter-3.md#how-cadvisor-turns-cgroups-into-container-metrics) follows the CPU measurement from Linux through the kubelet to Prometheus.
 
+### Current workload revisions and configuration
+
+Now that you have seen where the Pod details and CPU samples come from, you can read them together in the **Workload Context** table. The table has one row for every revision, container, and image that is running now, and each row shows:
+
+- Workload kind and name.
+- Current revision and image.
+- Replica count.
+- Revision age.
+- CPU and memory requests.
+- CPU and memory limits.
+- Available observation history.
+
+An older revision may still appear later in the revision summary if it ran during the selected time range, but it does not appear in this table after its Pods are gone.
+
+**Replica count** is the number of different Pod UIDs currently running the revision, container, and image shown in that row.
+
+**Revision age** starts when the oldest of those current Pods was created, so it is not the age of the Deployment itself. If Kubernetes has no CPU or memory request or limit for the container, the matching cell stays empty instead of showing zero.
+
+**Available observation history** shows the shortest CPU history among the Pods in the row. For example, if one Pod has an hour of data and another has only twenty minutes, the table shows twenty minutes because that is all the history available for comparing both Pods.
+
+![Current workload configuration for review-sample showing its container, image, revision, workload kind, replica count, revision age, CPU and memory requests and limits, and available observation history](image-1.png)
+
+Prometheus gets the workload kind, workload name, revision, container, image, image ID, requests, and limits from `kube-state-metrics`. It gets the length of the CPU history from the cAdvisor samples saved by the recording rule. Grafana places those values in the same row, but it does not use them to decide what the requests or limits should be.
+
 ### Current Pods
 
 ```promql
@@ -117,7 +141,7 @@ The earlier `kubectl get pods` command reads the current Pod objects directly fr
 
 | Dashboard | Prometheus query result |
 |---|---|
-| ![Current Pods shows 2 in Review context](assets/dashboard-current-pods.png) | ![Prometheus returns the two current Pod names and UIDs](assets/prometheus-current-pods.png) |
+| ![Current Pods shows 2 in Workload Context](assets/dashboard-current-pods.png) | ![Prometheus returns the two current Pod names and UIDs](assets/prometheus-current-pods.png) |
 
 ### Pod executions
 
@@ -142,7 +166,7 @@ Kubernetes removes a Pod object after the Pod is deleted, so `kubectl` cannot li
 
 | Dashboard | Prometheus query result |
 |---|---|
-| ![Pod executions shows 2 in Review context](assets/dashboard-pod-executions.png) | ![Prometheus returns the two Pod names and UIDs recorded during the last hour](assets/prometheus-pod-executions.png) |
+| ![Pod executions shows 2 in Workload Context](assets/dashboard-pod-executions.png) | ![Prometheus returns the two Pod names and UIDs recorded during the last hour](assets/prometheus-pod-executions.png) |
 
 ### Revisions
 
@@ -165,7 +189,7 @@ count by (cluster, namespace, workload_type, workload, revision, revision_source
 
 | Dashboard | Prometheus query result |
 |---|---|
-| ![Revisions shows 1 in Review context](assets/dashboard-revisions.png) | ![Prometheus returns one revision shared by two Pods](assets/prometheus-revisions.png) |
+| ![Revisions shows 1 in Workload Context](assets/dashboard-revisions.png) | ![Prometheus returns one revision shared by two Pods](assets/prometheus-revisions.png) |
 
 Both Pods have `workload="review-sample"`, `revision="review-sample-85d7d6b6c6"`, and `revision_source="replicaset"`. The query puts them on one line with the value `2`, meaning that two Pods belong to that revision. Grafana counts the one revision line and shows **Revisions = 1**.
 
@@ -221,7 +245,7 @@ This confirms the one current node. The Grafana card comes from Prometheus so th
 
 | Dashboard | Prometheus query result |
 |---|---|
-| ![Nodes shows 1 in Review context](assets/dashboard-nodes.png) | ![Prometheus returns one node shared by two Pods](assets/prometheus-nodes.png) |
+| ![Nodes shows 1 in Workload Context](assets/dashboard-nodes.png) | ![Prometheus returns one node shared by two Pods](assets/prometheus-nodes.png) |
 
 ### Shortest history
 
@@ -274,13 +298,13 @@ The Kubernetes API does not count Prometheus samples, so there is no matching `k
 
 | Dashboard | Prometheus query result |
 |---|---|
-| ![CPU coverage shows 100% in Review context](assets/dashboard-review-context.png) | ![Prometheus returns 1, which Grafana displays as 100%](assets/prometheus-cpu-coverage.png) |
+| ![CPU coverage shows 100% in Workload Context](assets/dashboard-cpu-coverage.png) | ![Prometheus returns 1, which Grafana displays as 100%](assets/prometheus-cpu-coverage.png) |
 
-Together, the six cards say that two Pods ran during the selected hour, both belong to one ReplicaSet, both ran on one node, and Prometheus has a complete hour of CPU values for both Pods. The next section can therefore compare their CPU and memory values without a Pod with less data changing the result.
+Read the table and the six cards together. They show which revision and image are running, the requests and limits set on the container, and how much data Prometheus has for the two Pods. They also show that both Pods belong to the same ReplicaSet and ran on the same node during the selected hour. With that context in place, the next section compares the CPU and memory values of the two Pods separately, so one Pod cannot disappear inside a workload-wide average.
 
 ## Compare Pods before reading the summary
 
-<!-- Add a screenshot of CPU by Pod execution and Memory and failures by Pod execution here. -->
+![CPU by Pod execution and Memory and failures by Pod execution showing the two review-sample Pods on separate rows](assets/dashboard-pod-comparison.png)
 
 The **CPU by Pod execution** table reads the same CPU recording rule three times over the selected hour, then keeps throttled-period, throttled-time, and optional CPU-pressure evidence on the same Pod row:
 
@@ -300,8 +324,6 @@ The queries return one row for each of the two Pod UIDs:
 | `review-sample-85d7d6b6c6-k2wxw` | 49.50m | 49.93m | 49.95m |
 
 The two Pods used almost the same CPU during this hour. The table still keeps them separate because a single workload average would hide the difference if one Pod later used much more CPU than the other. The revision summary is calculated only after these per-Pod values exist.
-
-The **Workload Context** section keeps the selected workload kind and name together with one row for every currently reported revision, container, and immutable image. Each row includes current replica count, observed revision age, CPU and memory requests and limits, and the shortest available CPU observation history. Historical-only revisions remain available in the revision summary but do not appear as current context.
 
 ## Check CPU usage, limits, and throttling
 

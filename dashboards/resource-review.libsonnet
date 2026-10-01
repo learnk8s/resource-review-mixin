@@ -527,20 +527,20 @@ function(config)
 
     table(9, 'Current workload revisions and configuration', 'One row per currently reported workload revision, container, and immutable image. It keeps workload kind and name, replica count, observed revision age, current requests and limits, and the shortest available CPU observation history together.', grid(0, 10, 24, 8), [
       target('A', currentReplicaCount, 'Replica count', true, 'table'),
-      target('B', currentRevisionAge, 'Observed revision age', true, 'table'),
+      target('B', currentRevisionAge, 'Revision age', true, 'table'),
       target('C', currentCpuRequest, 'CPU request', true, 'table'),
       target('D', currentCpuLimit, 'CPU limit', true, 'table'),
       target('E', currentMemoryRequest, 'Memory request', true, 'table'),
       target('F', currentMemoryLimit, 'Memory limit', true, 'table'),
-      target('G', currentObservationHistory, 'Observation history', true, 'table'),
+      target('G', currentObservationHistory, 'Available observation history', true, 'table'),
     ], [
       { ref: 'A', name: 'Replica count', unit: 'short', width: 100 },
-      { ref: 'B', name: 'Observed revision age', unit: 's', width: 130 },
+      { ref: 'B', name: 'Revision age', unit: 's', width: 130 },
       { ref: 'C', name: 'CPU request', unit: 'short', width: 95 },
       { ref: 'D', name: 'CPU limit', unit: 'short', width: 90 },
       { ref: 'E', name: 'Memory request', unit: 'bytes', width: 110 },
       { ref: 'F', name: 'Memory limit', unit: 'bytes', width: 105 },
-      { ref: 'G', name: 'Observation history', unit: 's', width: 120 },
+      { ref: 'G', name: 'Available observation history', unit: 's', width: 170 },
     ], extraExclude=['revision_source'], compact=true),
 
     row(60, 'Peak usage vs limits', 18),
