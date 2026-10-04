@@ -4,7 +4,7 @@
 
 `make dev` creates a Deployment called `review-sample` for this walkthrough. Open the [Kubernetes Resource Review dashboard](http://127.0.0.1:3000/d/learnk8s-resource-review/kubernetes-resource-review), select `resource-review-test` as the namespace, `deployment` as the workload kind, and `review-sample` as the workload. Leave revision, Pod, and container set to `All`, then choose `Last 1 hour` in the time picker.
 
-![Kubernetes Resource Review filters set to the local review-sample Deployment](assets/dashboard-review-sample-filters.png)
+![alt text](image-2.png)
 
 ## Workload Context
 
