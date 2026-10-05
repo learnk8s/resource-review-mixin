@@ -561,7 +561,7 @@ function(config)
     ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id'], compact=true),
 
     row(50, 'Review Table', 33, true, [
-      table(51, 'Evidence by workload revision, container, and immutable image', 'One row per workload revision, container, and immutable image. It combines the last observed requests and limits with selected-window usage, replica count, observation duration, failure signals, and missing-evidence warnings without merging evidence from different images.', grid(0, 34, 24, 13), [
+      table(51, 'Evidence by workload revision, container, and immutable image', 'One row per workload revision, container, and immutable image. It combines the last observed requests and limits with selected-window usage, distinct Pod executions, observation duration, failure signals, and missing-evidence warnings without merging evidence from different images.', grid(0, 34, 24, 13), [
         target('A', summaryCpuRequest, 'CPU request', true, 'table'),
         target('B', summaryCpuLimit, 'CPU limit', true, 'table'),
         target('D', summaryCpuP95, 'Highest replica CPU p95', true, 'table'),
@@ -569,7 +569,7 @@ function(config)
         target('F', summaryMemoryRequest, 'Memory request', true, 'table'),
         target('G', summaryMemoryLimit, 'Memory limit', true, 'table'),
         target('I', summaryMemoryMax, 'Highest replica memory maximum', true, 'table'),
-        target('V', 'count by (' + summaryLabels + ') (count by (' + summaryLabels + ', pod, uid) (' + identityMetric + '))', 'Replica count', true, 'table'),
+        target('V', 'count by (' + summaryLabels + ') (count by (' + summaryLabels + ', pod, uid) (' + identity + '))', 'Replica count', true, 'table'),
         target('K', 'min by (' + summaryLabels + ') (count_over_time(' + cpuUsage + '[$__range]) * 60)', 'Observation duration', true, 'table'),
         target('M', 'sum by (' + summaryLabels + ') (' + oomEvents + ')', 'OOM events', true, 'table'),
         target('N', 'sum by (' + summaryLabels + ') (' + restarts + ')', 'Restarts', true, 'table'),

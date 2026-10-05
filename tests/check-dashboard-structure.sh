@@ -29,6 +29,7 @@ expected_variables='["datasource","cluster","namespace","workload_type","workloa
   and ([$expressions[] | select(test("increase\\((container_oom_events_total|kube_pod_container_status_restarts_total)"))] | length == 0)
   and (all($panels[] | select(.id == 51).targets[]; .expr | contains("image_id") and contains("revision_source")))
   and ([ $panels[] | select(.id == 51).targets[].legendFormat ] | sort == ["CPU difference ratio", "CPU limit", "CPU request", "CPU request minus p95", "Highest replica CPU maximum", "Highest replica CPU p95", "Highest replica memory maximum", "Maximum CPU pressure", "Maximum memory pressure", "Maximum throttled time", "Maximum throttling", "Memory difference ratio", "Memory limit", "Memory request", "Memory request minus maximum", "Missing evidence warnings", "OOM events", "OOMKilled", "Observation duration", "Replica count", "Restarts"])
+  and ([$panels[] | select(.id == 51).targets[] | select(.refId == "V").expr | select(contains("max_over_time(resource_review:workload_revision_pod_container_info") and contains("[$__range]"))] | length == 1)
   and (all($panels[] | select(.id == 51).targets[] | select(.refId == "A" or .refId == "B" or .refId == "F" or .refId == "G"); .expr | contains("last_over_time")))
   and ([$panels[] | select(.id == 51).targets[] | select(.refId == "I").expr | select(contains("resource_review:container_memory_usage_bytes"))] | length == 1)
   and ([$panels[] | select(.id == 12).title] == ["Pod executions"])
