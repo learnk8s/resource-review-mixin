@@ -58,7 +58,7 @@ The dashboard compares each [Pod](https://kubernetes.io/docs/concepts/workloads/
 
 ### Review Table
 
-Show one row for each workload revision and container:
+Show one row for each workload revision, container, and immutable image:
 
 - Current requests and limits.
 - CPU p95 and maximum.
