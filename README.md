@@ -6,6 +6,69 @@ The dashboard compares each [Pod](https://kubernetes.io/docs/concepts/workloads/
 
 [Metric definitions and limitations](docs/metrics.md) explains what each value means and what it cannot tell you.
 
+## Dashboard Filters
+
+- Cluster.
+- Namespace.
+- Workload.
+- Workload revision.
+- Pod.
+- Container.
+- Observation window.
+
+## Dashboard Sections
+
+### Workload Context
+
+- Workload kind and name.
+- Current revision and image.
+- Replica count.
+- Revision age.
+- CPU and memory requests.
+- CPU and memory limits.
+- Available observation history.
+
+### CPU Evidence
+
+- CPU usage over time.
+- p95 and maximum CPU usage.
+- CPU request and limit.
+- Difference between the request and p95 usage.
+- CPU throttled-period percentage.
+- CPU throttled time.
+- CPU pressure when PSI metrics exist.
+
+### Memory Evidence
+
+- Total container memory.
+- Working-set memory.
+- RSS and cache.
+- Maximum values for the selected period.
+- Memory request and limit.
+- Memory pressure when PSI metrics exist.
+- cAdvisor OOM events.
+- Kubernetes `OOMKilled` state.
+- Container restarts.
+
+### Replica Comparison
+
+- Keep each pod and node visible.
+- Compare usage, throttling, pressure, memory, OOM events, and restarts.
+- Do not hide replica differences behind one average.
+
+### Review Table
+
+Show one row for each workload revision and container:
+
+- Current requests and limits.
+- CPU p95 and maximum.
+- Memory maximum.
+- Absolute and percentage differences from requests.
+- Replica count.
+- Observation duration.
+- OOM, restart, throttling, and pressure signals.
+- Missing evidence warnings.
+
 ## Try it locally
 
 `make dev` needs [Docker](https://docs.docker.com/get-started/docker-overview/), [kind](https://kind.sigs.k8s.io/), [Helm](https://helm.sh/docs/), [kubectl](https://kubernetes.io/docs/reference/kubectl/), [curl](https://curl.se/docs/), and [GNU Make](https://www.gnu.org/software/make/manual/make.html).
@@ -49,11 +112,21 @@ make dev-down
 
 CPU and memory [Pressure Stall Information (PSI)](https://docs.kernel.org/accounting/psi.html) metrics are optional. When a node or cAdvisor version does not expose them, the dashboard continues to work and shows the pressure evidence as unavailable rather than zero. Check the tested versions and required measurements in [Compatibility and required metrics](docs/compatibility.md).
 
+`make validate` checks which tools are already available. It downloads missing tools to `.tools/bin`; it does not change system directories. Each download uses a fixed version and must match the SHA-256 checksum stored in this repository. Downloads need `curl`, `tar`, and a SHA-256 command (`sha256sum` or `shasum`). The setup also needs [GNU Make](https://www.gnu.org/software/make/manual/make.html). It supports Linux and macOS on amd64 and arm64.
+
 Review [config.libsonnet](config.libsonnet), then create and check the files:
 
 ```bash
 make validate
 
+🔧 Checking validation tools
+   ↳ Jsonnet tools: found
+   ↳ promtool: found
+   ↳ Pint: found
+   ↳ dashboard-linter: found
+   ↳ kubeconform: found
+   ↳ jq: found
+✅ Validation tools are ready.
 🔎 Validating source and generated files
    ↳ Generating the dashboard, rules, and Kubernetes files
    ↳ Checking Jsonnet formatting
@@ -66,11 +139,19 @@ make validate
 ✅ Validation passed.
 ```
 
-`make validate` recreates the dashboard, Prometheus rules, and Kubernetes files, then checks their formatting, queries, tests, and Kubernetes fields. After it passes, confirm that the committed files match the current Jsonnet source:
+`make validate` recreates the dashboard, Prometheus rules, and Kubernetes files, then checks their formatting, queries, tests, and Kubernetes fields. After it passes, confirm that the committed files match the current Jsonnet source. `make check-generated` uses the same tools because it creates the files again in a temporary directory before comparing them:
 
 ```bash
 make check-generated
 
+🔧 Checking validation tools
+   ↳ Jsonnet tools: found
+   ↳ promtool: found
+   ↳ Pint: found
+   ↳ dashboard-linter: found
+   ↳ kubeconform: found
+   ↳ jq: found
+✅ Validation tools are ready.
 🔄 Checking committed generated files
 ✅ Committed generated files match the source
 ```
