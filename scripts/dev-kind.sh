@@ -14,6 +14,7 @@ ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 CONTEXT="kind-$CLUSTER_NAME"
 chart_dir=''
 cluster_created=false
+COMMAND_OUTPUT=''
 
 cleanup() {
   if [[ -n "$chart_dir" ]]; then
@@ -23,10 +24,78 @@ cleanup() {
 }
 trap cleanup EXIT
 
+fail() {
+  local message=$1
+  local hint=${2:-}
+  local output=${3:-}
+  local status=${4:-1}
+  local detail=''
+
+  printf '❌ %s\n' "$message" >&2
+
+  case "$output" in
+    *'response status code 401'*|*'response status code 403'*|*'denied: denied'*)
+      detail='The remote package source denied the request.'
+      ;;
+    *'permission denied while trying to connect to the Docker daemon'*|*'docker.sock: connect: permission denied'*)
+      detail='Docker is running, but the current user cannot access the Docker socket.'
+      ;;
+    *'Cannot connect to the Docker daemon'*|*'Is the docker daemon running?'*)
+      detail='The Docker daemon is not available.'
+      ;;
+    *'Could not resolve host'*|*'no such host'*|*'Temporary failure in name resolution'*)
+      detail='DNS resolution failed.'
+      ;;
+    *'i/o timeout'*|*'context deadline exceeded'*|*'Client.Timeout exceeded'*)
+      detail='The request timed out.'
+      ;;
+    *'connection refused'*|*'connect: connection refused'*)
+      detail='The remote service refused the connection.'
+      ;;
+    *'x509:'*|*'certificate signed by unknown authority'*)
+      detail='TLS certificate verification failed.'
+      ;;
+  esac
+
+  if [[ -n "$detail" ]]; then
+    printf '   %s\n' "$detail" >&2
+  elif [[ -n "$output" ]]; then
+    detail=$(printf '%s\n' "$output" | awk 'NF { line=$0 } END { print line }')
+    if [[ ${#detail} -gt 240 ]]; then
+      detail="${detail:0:237}..."
+    fi
+    [[ -z "$detail" ]] || printf '   Details: %s\n' "$detail" >&2
+  fi
+
+  [[ -z "$hint" ]] || printf '   %s\n' "$hint" >&2
+  exit "$status"
+}
+
+run_or_fail() {
+  local message=$1
+  local hint=$2
+  local status
+  shift 2
+
+  if COMMAND_OUTPUT=$("$@" 2>&1); then
+    return
+  else
+    status=$?
+  fi
+
+  fail "$message" "$hint" "$COMMAND_OUTPUT" "$status"
+}
+
+unexpected_error() {
+  local status=$?
+  trap - ERR
+  fail 'Development environment setup failed unexpectedly.' 'Run the command again after checking the tools listed in README.md.' '' "$status"
+}
+trap unexpected_error ERR
+
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
-    echo "Required command not found: $1" >&2
-    exit 1
+    fail "Required command not found: $1." 'Install it and ensure it is available on PATH.'
   fi
 }
 
@@ -34,11 +103,18 @@ for command in "$KIND" "$KUBECTL" "$HELM" "$CURL"; do
   require_command "$command"
 done
 
-if "$KIND" get clusters | grep --fixed-strings --line-regexp --quiet "$CLUSTER_NAME"; then
+run_or_fail \
+  'Could not inspect local kind clusters.' \
+  'Start Docker and verify that your user can access it, then retry.' \
+  "$KIND" get clusters
+if grep --fixed-strings --line-regexp --quiet "$CLUSTER_NAME" <<<"$COMMAND_OUTPUT"; then
   echo "♻️  Reusing kind cluster: $CLUSTER_NAME"
 else
   echo "🚀 Creating kind cluster: $CLUSTER_NAME"
-  "$KIND" create cluster \
+  run_or_fail \
+    "Could not create kind cluster: $CLUSTER_NAME." \
+    'Check Docker capacity and the kind node image, then retry.' \
+    "$KIND" create cluster \
     --quiet \
     --name "$CLUSTER_NAME" \
     --image "$KIND_NODE_IMAGE" \
@@ -47,31 +123,48 @@ else
   cluster_created=true
 fi
 
-"$KUBECTL" config use-context "$CONTEXT" >/dev/null
+run_or_fail \
+  "Could not export kubeconfig for kind cluster: $CLUSTER_NAME." \
+  'Check that the kind cluster is running and retry.' \
+  "$KIND" export kubeconfig --name "$CLUSTER_NAME"
+
+run_or_fail \
+  "Could not select Kubernetes context: $CONTEXT." \
+  'Check the generated kubeconfig and retry.' \
+  "$KUBECTL" config use-context "$CONTEXT"
 
 if [[ "$cluster_created" == true ]]; then
-  "$KUBECTL" --context "$CONTEXT" -n kube-system create configmap resource-review-dev-metadata \
-    --from-literal="kind-node-image=$KIND_NODE_IMAGE" \
-    >/dev/null
+  run_or_fail \
+    'Could not save development cluster metadata.' \
+    'Check Kubernetes API access and retry.' \
+    "$KUBECTL" --context "$CONTEXT" -n kube-system create configmap resource-review-dev-metadata \
+    --from-literal="kind-node-image=$KIND_NODE_IMAGE"
 else
-  installed_node_image=$("$KUBECTL" --context "$CONTEXT" -n kube-system \
+  run_or_fail \
+    'Could not verify the existing development cluster.' \
+    'Check Kubernetes API access or recreate the cluster with make dev-down.' \
+    "$KUBECTL" --context "$CONTEXT" -n kube-system \
     get configmap resource-review-dev-metadata \
-    -o jsonpath='{.data.kind-node-image}' 2>/dev/null || true)
+    --ignore-not-found \
+    -o jsonpath='{.data.kind-node-image}'
+  installed_node_image=$COMMAND_OUTPUT
   if [[ "$installed_node_image" != "$KIND_NODE_IMAGE" ]]; then
-    echo '🔒 The existing kind cluster was created with a different or unverified node image.' >&2
-    echo 'Run make dev-down, then make dev to recreate it from the pinned digest.' >&2
-    exit 1
+    fail \
+      'The existing kind cluster uses a different or unverified node image.' \
+      'Run make dev-down, then make dev to recreate it from the pinned digest.'
   fi
 fi
 
 chart_dir=$(mktemp -d)
 chart_archive="$chart_dir/kube-prometheus-stack-$KUBE_PROMETHEUS_STACK_VERSION.tgz"
 echo "📦 Installing kube-prometheus-stack $KUBE_PROMETHEUS_STACK_VERSION"
-"$HELM" pull \
-  oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack \
+run_or_fail \
+  "Could not download kube-prometheus-stack $KUBE_PROMETHEUS_STACK_VERSION." \
+  'Check access to the Prometheus Community Helm repository, or retry later.' \
+  "$HELM" pull kube-prometheus-stack \
+  --repo https://prometheus-community.github.io/helm-charts \
   --version "$KUBE_PROMETHEUS_STACK_VERSION" \
-  --destination "$chart_dir" \
-  >/dev/null
+  --destination "$chart_dir"
 
 if command -v sha256sum >/dev/null 2>&1; then
   actual_chart_sha256=$(sha256sum "$chart_archive" | awk '{ print $1 }')
@@ -80,13 +173,16 @@ else
   actual_chart_sha256=$(shasum -a 256 "$chart_archive" | awk '{ print $1 }')
 fi
 if [[ "$actual_chart_sha256" != "$KUBE_PROMETHEUS_STACK_SHA256" ]]; then
-  echo "🔒 kube-prometheus-stack chart checksum mismatch" >&2
-  echo "Expected: $KUBE_PROMETHEUS_STACK_SHA256" >&2
-  echo "Actual:   $actual_chart_sha256" >&2
-  exit 1
+  fail \
+    'The kube-prometheus-stack chart checksum does not match the pinned value.' \
+    'Do not use the downloaded chart. Verify the configured version and checksum before retrying.' \
+    "Expected $KUBE_PROMETHEUS_STACK_SHA256, received $actual_chart_sha256."
 fi
 
-"$HELM" upgrade --install kube-prometheus-stack \
+run_or_fail \
+  'Could not install kube-prometheus-stack.' \
+  'Inspect the monitoring namespace and Helm release, then retry.' \
+  "$HELM" upgrade --install kube-prometheus-stack \
   "$chart_archive" \
   --namespace monitoring \
   --create-namespace \
@@ -106,19 +202,21 @@ fi
   --set prometheus.prometheusSpec.scrapeInterval=15s \
   --set prometheus.prometheusSpec.evaluationInterval=15s \
   --set prometheus.service.type=NodePort \
-  --set prometheus.service.nodePort=30090 \
-  >/dev/null
+  --set prometheus.service.nodePort=30090
 
 echo '📊 Installing the mixin and sample workload'
-"$KUBECTL" --context "$CONTEXT" apply -f "$ROOT_DIR/manifests/prometheus-rule.yaml" 2>&1 \
-  | sed 's/^/   ↳ /'
-"$KUBECTL" --context "$CONTEXT" apply -f "$ROOT_DIR/manifests/dashboard-configmap.yaml" 2>&1 \
-  | sed 's/^/   ↳ /'
-"$KUBECTL" --context "$CONTEXT" apply -f "$ROOT_DIR/tests/fixtures/review-workload.yaml" 2>&1 \
-  | sed 's/^/   ↳ /'
-"$KUBECTL" --context "$CONTEXT" -n resource-review-test \
-  rollout status deployment/review-sample --timeout=3m 2>&1 \
-  | sed 's/^/   ↳ /'
+run_or_fail 'Could not install the Prometheus recording rules.' 'Check the PrometheusRule CRD and monitoring namespace.' \
+  "$KUBECTL" --context "$CONTEXT" apply -f "$ROOT_DIR/manifests/prometheus-rule.yaml"
+printf '%s\n' "$COMMAND_OUTPUT" | sed 's/^/   ↳ /'
+run_or_fail 'Could not install the Grafana dashboard.' 'Check ConfigMap permissions in the monitoring namespace.' \
+  "$KUBECTL" --context "$CONTEXT" apply -f "$ROOT_DIR/manifests/dashboard-configmap.yaml"
+printf '%s\n' "$COMMAND_OUTPUT" | sed 's/^/   ↳ /'
+run_or_fail 'Could not install the sample workload.' 'Check Kubernetes API access and the resource-review-test namespace.' \
+  "$KUBECTL" --context "$CONTEXT" apply -f "$ROOT_DIR/tests/fixtures/review-workload.yaml"
+printf '%s\n' "$COMMAND_OUTPUT" | sed 's/^/   ↳ /'
+run_or_fail 'The sample workload did not become ready.' 'Inspect the resource-review-test Pods with kubectl.' \
+  "$KUBECTL" --context "$CONTEXT" -n resource-review-test rollout status deployment/review-sample --timeout=3m
+printf '%s\n' "$COMMAND_OUTPUT" | sed 's/^/   ↳ /'
 
 wait_for_url() {
   local url=$1
@@ -131,8 +229,10 @@ wait_for_url() {
     sleep 1
   done
 
-  echo "Timed out waiting for $name at $url" >&2
-  exit 1
+  fail \
+    "Timed out waiting for $name." \
+    'Inspect the monitoring Pods and services, then retry.' \
+    "$url did not become ready within 60 seconds."
 }
 
 wait_for_url 'http://127.0.0.1:3000/api/health' Grafana
