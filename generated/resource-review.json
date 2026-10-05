@@ -3746,7 +3746,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "One row per workload revision, container, and immutable image. It combines current requests and limits with selected-window usage, replica count, observation duration, failure signals, and missing-evidence warnings without merging evidence from different images.",
+          "description": "One row per workload revision, container, and immutable image. It combines the last observed requests and limits with selected-window usage, replica count, observation duration, failure signals, and missing-evidence warnings without merging evidence from different images.",
           "fieldConfig": {
             "defaults": {
               "custom": {
@@ -4139,7 +4139,7 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})",
+              "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))",
               "format": "table",
               "instant": true,
               "legendFormat": "CPU request",
@@ -4151,7 +4151,7 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})",
+              "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (last_over_time(resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))",
               "format": "table",
               "instant": true,
               "legendFormat": "CPU limit",
@@ -4187,7 +4187,7 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})",
+              "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (last_over_time(resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))",
               "format": "table",
               "instant": true,
               "legendFormat": "Memory request",
@@ -4199,7 +4199,7 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})",
+              "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (last_over_time(resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))",
               "format": "table",
               "instant": true,
               "legendFormat": "Memory limit",
@@ -4283,7 +4283,7 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "(max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})) - (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (quantile_over_time(0.95, resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))",
+              "expr": "(max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))) - (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (quantile_over_time(0.95, resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))",
               "format": "table",
               "instant": true,
               "legendFormat": "CPU request minus p95",
@@ -4295,7 +4295,7 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "(((max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})) - (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (quantile_over_time(0.95, resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))) / (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}))) and on (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}) > 0)",
+              "expr": "(((max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))) - (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (quantile_over_time(0.95, resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))) / (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))) and on (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) > 0)",
               "format": "table",
               "instant": true,
               "legendFormat": "CPU difference ratio",
@@ -4307,7 +4307,7 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "(max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})) - (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max_over_time(resource_review:container_memory_usage_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))",
+              "expr": "(max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (last_over_time(resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))) - (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max_over_time(resource_review:container_memory_usage_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))",
               "format": "table",
               "instant": true,
               "legendFormat": "Memory request minus maximum",
@@ -4319,7 +4319,7 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "(((max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})) - (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max_over_time(resource_review:container_memory_usage_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))) / (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}))) and on (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}) > 0)",
+              "expr": "(((max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (last_over_time(resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))) - (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max_over_time(resource_review:container_memory_usage_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))) / (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (last_over_time(resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))) and on (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (last_over_time(resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) > 0)",
               "format": "table",
               "instant": true,
               "legendFormat": "Memory difference ratio",

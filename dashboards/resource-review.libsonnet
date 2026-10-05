@@ -44,15 +44,15 @@ function(config)
   local lastTerminatedExitCode = 'resource_review:container_last_terminated_exit_code{%s}' % selector;
 
   local summarize(expr) = 'max by (%s) (%s)' % [summaryLabels, expr];
-  local summaryCpuRequest = summarize(cpuRequest);
-  local summaryCpuLimit = summarize(cpuLimit);
+  local summaryCpuRequest = summarize(last(cpuRequest));
+  local summaryCpuLimit = summarize(last(cpuLimit));
   local summaryCpuP95 = summarize(p95(cpuUsage));
   local summaryCpuMax = summarize(maximum(cpuUsage));
   local summaryCpuThrottled = summarize(maximum(cpuThrottled));
   local summaryCpuThrottledTime = summarize(maximum(cpuThrottledTime));
   local summaryCpuPressure = summarize(maximum(cpuPressure));
-  local summaryMemoryRequest = summarize(memoryRequest);
-  local summaryMemoryLimit = summarize(memoryLimit);
+  local summaryMemoryRequest = summarize(last(memoryRequest));
+  local summaryMemoryLimit = summarize(last(memoryLimit));
   local summaryMemoryMax = summarize(maximum(memoryUsage));
   local summaryMemoryPressure = summarize(maximum(memoryPressure));
   local summaryOomKilled = summarize(oomKilled);
@@ -561,7 +561,7 @@ function(config)
     ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id'], compact=true),
 
     row(50, 'Review Table', 33, true, [
-      table(51, 'Evidence by workload revision, container, and immutable image', 'One row per workload revision, container, and immutable image. It combines current requests and limits with selected-window usage, replica count, observation duration, failure signals, and missing-evidence warnings without merging evidence from different images.', grid(0, 34, 24, 13), [
+      table(51, 'Evidence by workload revision, container, and immutable image', 'One row per workload revision, container, and immutable image. It combines the last observed requests and limits with selected-window usage, replica count, observation duration, failure signals, and missing-evidence warnings without merging evidence from different images.', grid(0, 34, 24, 13), [
         target('A', summaryCpuRequest, 'CPU request', true, 'table'),
         target('B', summaryCpuLimit, 'CPU limit', true, 'table'),
         target('D', summaryCpuP95, 'Highest replica CPU p95', true, 'table'),
