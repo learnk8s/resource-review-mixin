@@ -747,7 +747,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "count by (cluster, namespace, workload_type, workload, revision, container) (count by (cluster, namespace, workload_type, workload, revision, container, pod, uid) (resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}))",
+          "expr": "count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id, pod, uid) (resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}))",
           "format": "table",
           "instant": true,
           "legendFormat": "Replica count",
@@ -759,7 +759,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "time() - min by (cluster, namespace, workload_type, workload, revision, container) (resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"} * on (cluster, namespace, pod, uid) group_left() resource_review:workload_revision_pod_created_timestamp_seconds{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\"})",
+          "expr": "time() - min by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"} * on (cluster, namespace, pod, uid) group_left() resource_review:workload_revision_pod_created_timestamp_seconds{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "Revision age",
@@ -771,7 +771,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "max by (cluster, namespace, workload_type, workload, revision, container) (resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})",
+          "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "CPU request",
@@ -783,7 +783,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "max by (cluster, namespace, workload_type, workload, revision, container) (resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})",
+          "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "CPU limit",
@@ -795,7 +795,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "max by (cluster, namespace, workload_type, workload, revision, container) (resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})",
+          "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "Memory request",
@@ -807,7 +807,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "max by (cluster, namespace, workload_type, workload, revision, container) (resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})",
+          "expr": "max by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "Memory limit",
@@ -819,7 +819,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "(min by (cluster, namespace, workload_type, workload, revision, container) (count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) * 60)) and on (cluster, namespace, workload_type, workload, revision, container) (count by (cluster, namespace, workload_type, workload, revision, container) (count by (cluster, namespace, workload_type, workload, revision, container, pod, uid) (resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})))",
+          "expr": "(min by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) * 60)) and on (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id, pod, uid) (resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})))",
           "format": "table",
           "instant": true,
           "legendFormat": "Available observation history",

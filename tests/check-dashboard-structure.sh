@@ -40,6 +40,7 @@ expected_variables='["datasource","cluster","namespace","workload_type","workloa
   and ([.panels[] | select(.type == "row") | .title] == ["Workload Context", "CPU Evidence", "Memory Evidence", "Replica Comparison", "Review Table"])
   and ([$panels[] | select(.id == 9).title] == ["Current workload revisions and configuration"])
   and ([ $panels[] | select(.id == 9).targets[].legendFormat ] | sort == ["Available observation history", "CPU limit", "CPU request", "Memory limit", "Memory request", "Replica count", "Revision age"])
+  and (all($panels[] | select(.id == 9).targets[]; .expr | contains("image, image_id")))
   and ([$panels[] | select(.id == 61).title] == ["Peak CPU as % of limit"])
   and ([$panels[] | select(.id == 62).title] == ["Peak memory as % of limit"])
   and ([$panels[] | select(.id == 51).targets[] | select(.refId == "AA").expr | select(contains("CPU PSI unavailable") and contains("Memory PSI unavailable") and contains("CPU throttled-period evidence unavailable") and contains("CPU throttled-time evidence unavailable"))] | length == 1)
