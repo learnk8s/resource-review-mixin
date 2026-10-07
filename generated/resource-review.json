@@ -339,7 +339,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "CPU history available for the least-observed selected replica. Missing one-minute rule samples shorten this value.",
+      "description": "CPU history available for the least-observed selected replica. A known replica without CPU samples has zero history.",
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -397,7 +397,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "min(count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) * 60",
+          "expr": "min((count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) or (0 * max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))) * 60)",
           "format": "time_series",
           "instant": true,
           "legendFormat": "History",
@@ -413,7 +413,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Lowest share of expected one-minute CPU samples available for any selected replica in the time window.",
+      "description": "Lowest share of expected one-minute CPU samples available for any selected replica in the time window. Known replicas without CPU samples count as zero coverage.",
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -471,7 +471,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "clamp_max(min(count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])) / ($__range_s / 60), 1)",
+          "expr": "min(clamp_max((count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) or (0 * max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))) / ($__range_s / 60), 1))",
           "format": "time_series",
           "instant": true,
           "legendFormat": "Coverage",
@@ -812,7 +812,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "(min by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) * 60)) and on (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id, pod, uid) (resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})))",
+          "expr": "(min by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) ((count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) or (0 * max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))) * 60)) and on (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id, pod, uid) (resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"})))",
           "format": "table",
           "instant": true,
           "legendFormat": "Available observation history",
@@ -3654,7 +3654,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) * 60",
+          "expr": "(count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) or (0 * max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))) * 60",
           "format": "table",
           "instant": true,
           "legendFormat": "History",
@@ -3666,7 +3666,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "clamp_max(count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) / ($__range_s / 60), 1)",
+          "expr": "clamp_max((count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) or (0 * max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))) / ($__range_s / 60), 1)",
           "format": "table",
           "instant": true,
           "legendFormat": "Coverage",
@@ -4721,7 +4721,7 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "min by (cluster, namespace, workload_type, workload, revision, revision_source, container) (count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) * 60)",
+              "expr": "min by (cluster, namespace, workload_type, workload, revision, revision_source, container) ((count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) or (0 * max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))) * 60)",
               "format": "table",
               "instant": true,
               "legendFormat": "Observation duration",

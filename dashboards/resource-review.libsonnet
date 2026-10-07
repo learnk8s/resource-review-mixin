@@ -68,9 +68,14 @@ function(config)
   local currentCpuLimit = 'max by (%s) (%s)' % [currentContextLabels, cpuLimit];
   local currentMemoryRequest = 'max by (%s) (%s)' % [currentContextLabels, memoryRequest];
   local currentMemoryLimit = 'max by (%s) (%s)' % [currentContextLabels, memoryLimit];
-  local currentObservationHistory = '(min by (%s) (count_over_time(%s[$__range]) * 60)) and on (%s) (%s)' % [
+  // Include every known Pod/container identity, even when it has no CPU
+  // samples.
+  local cpuSampleCount = '(count_over_time(%s[$__range]) or (0 * %s))' % [cpuUsage, identity];
+  local cpuHistory = '%s * 60' % cpuSampleCount;
+  local cpuCoverage = 'clamp_max(%s / ($__range_s / 60), 1)' % cpuSampleCount;
+  local currentObservationHistory = '(min by (%s) (%s)) and on (%s) (%s)' % [
     currentContextLabels,
-    cpuUsage,
+    cpuHistory,
     currentContextLabels,
     currentReplicaCount,
   ];
@@ -454,11 +459,11 @@ function(config)
     stat(17, 'Nodes', 'Nodes that ran the selected Pod executions during the time window. One node cannot reveal host-dependent differences.', grid(12, 1, 4, 5), [
       target('A', 'count(count by (%s, namespace, node) (%s))' % [clusterLabel, identity], 'Nodes', true),
     ]),
-    stat(14, 'Shortest history', 'CPU history available for the least-observed selected replica. Missing one-minute rule samples shorten this value.', grid(16, 1, 4, 5), [
-      target('A', 'min(count_over_time(%s[$__range])) * 60' % cpuUsage, 'History', true),
+    stat(14, 'Shortest history', 'CPU history available for the least-observed selected replica. A known replica without CPU samples has zero history.', grid(16, 1, 4, 5), [
+      target('A', 'min(%s)' % cpuHistory, 'History', true),
     ], 's'),
-    stat(15, 'CPU coverage', 'Lowest share of expected one-minute CPU samples available for any selected replica in the time window.', grid(20, 1, 4, 5), [
-      target('A', 'clamp_max(min(count_over_time(%s[$__range])) / ($__range_s / 60), 1)' % cpuUsage, 'Coverage', true),
+    stat(15, 'CPU coverage', 'Lowest share of expected one-minute CPU samples available for any selected replica in the time window. Known replicas without CPU samples count as zero coverage.', grid(20, 1, 4, 5), [
+      target('A', 'min(%s)' % cpuCoverage, 'Coverage', true),
     ], 'percentunit'),
 
     table(9, 'Current workload revisions and configuration', 'One row per currently reported workload revision, container, and immutable image. It keeps workload kind and name, replica count, observed revision age, current requests and limits, and the shortest available CPU observation history together.', grid(0, 6, 24, 8), [
@@ -487,8 +492,8 @@ function(config)
       target('D', maximum(cpuThrottled), 'Maximum throttled-period percentage', true, 'table'),
       target('E', maximum(cpuThrottledTime), 'Maximum throttled-time rate', true, 'table'),
       target('F', maximum(cpuPressure), 'Maximum CPU pressure', true, 'table'),
-      target('G', 'count_over_time(' + cpuUsage + '[$__range]) * 60', 'History', true, 'table'),
-      target('H', 'clamp_max(count_over_time(' + cpuUsage + '[$__range]) / ($__range_s / 60), 1)', 'Coverage', true, 'table'),
+      target('G', cpuHistory, 'History', true, 'table'),
+      target('H', cpuCoverage, 'Coverage', true, 'table'),
     ], [
       { ref: 'A', name: 'Average CPU', unit: 'short', width: 100 },
       { ref: 'B', name: 'p95 CPU', unit: 'short', width: 80 },
@@ -531,7 +536,7 @@ function(config)
         target('T', summaryMemoryDifference, 'Memory absolute difference from request', true, 'table'),
         target('U', '((' + summaryMemoryDifference + ') / (' + summaryMemoryRequest + ')) and on (' + summaryLabels + ') (' + summaryMemoryRequest + ' > 0)', 'Memory percentage difference from request', true, 'table'),
         target('V', 'count by (' + summaryLabels + ') (count by (' + summaryLabels + ', pod, uid) (' + identity + '))', 'Replica count', true, 'table'),
-        target('K', 'min by (' + summaryLabels + ') (count_over_time(' + cpuUsage + '[$__range]) * 60)', 'Observation duration', true, 'table'),
+        target('K', 'min by (' + summaryLabels + ') (' + cpuHistory + ')', 'Observation duration', true, 'table'),
         target('M', 'sum by (' + summaryLabels + ') (' + oomEvents + ')', 'OOM events', true, 'table'),
         target('N', 'sum by (' + summaryLabels + ') (' + restarts + ')', 'Restarts', true, 'table'),
         target('O', summaryCpuThrottled, 'Throttled-period percentage', true, 'table'),

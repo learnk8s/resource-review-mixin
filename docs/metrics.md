@@ -94,6 +94,8 @@ sum by (namespace, pod, container) (
 
 Every minute, Prometheus adds the matching Pod name, UID, revision, and node, then saves the result as `resource_review:container_cpu_usage_cores:rate5m`. **Shortest history** and **CPU coverage** count those saved CPU values.
 
+These calculations also include every Pod/container identity recorded during the selected window. A known identity without CPU samples contributes zero history and coverage. Its CPU usage remains unavailable.
+
 Chapter 3 describes these two inputs in **Add the State Kubernetes Knows**: cAdvisor supplies the CPU measurement, while kube-state-metrics supplies the Pod UID, node, image, and owner that tell us which container produced it. The **How cAdvisor turns cgroups into container metrics** section follows the CPU measurement from Linux through the kubelet to Prometheus.
 
 ### Current workload revisions and configuration
@@ -115,6 +117,8 @@ An older revision may still appear later in the revision summary if it ran durin
 **Revision age** starts when the oldest of those current Pods was created, so it is not the age of the Deployment itself. If Kubernetes has no CPU or memory request or limit for the container, the matching cell stays empty instead of showing zero.
 
 **Available observation history** shows the shortest CPU history among the Pods in the row. For example, if one Pod has an hour of data and another has only twenty minutes, the table shows twenty minutes because that is all the history available for comparing both Pods.
+
+If a known Pod has no CPU samples, the row shows zero available observation history.
 
 An old revision may have weeks of data while a new revision has only a few minutes. The **Make Short Revision History Visible** section in Chapter 3 explains why combining those revisions would hide this difference. The table shows the revision age and available history beside the request and limit. When a row has only a few minutes of history, you know its values come from those few minutes.
 
@@ -264,6 +268,18 @@ min(
       container=~".*"
     }[1h]
   )
+  or (
+    0 * max_over_time(
+      resource_review:workload_revision_pod_container_info{
+        namespace=~"resource-review-test",
+        workload_type=~"deployment",
+        workload=~"review-sample",
+        revision=~".*",
+        pod=~".*",
+        container=~".*"
+      }[1h]
+    )
+  )
 ) * 60
 ```
 
@@ -288,12 +304,26 @@ clamp_max(
         container=~".*"
       }[1h]
     )
+    or (
+      0 * max_over_time(
+        resource_review:workload_revision_pod_container_info{
+          namespace=~"resource-review-test",
+          workload_type=~"deployment",
+          workload=~"review-sample",
+          revision=~".*",
+          pod=~".*",
+          container=~".*"
+        }[1h]
+      )
+    )
   ) / 60,
   1
 )
 ```
 
 The selected hour contains 60 one-minute slots, and Prometheus has 60 CPU values for both Pods. The query divides the smaller count, 60, by the expected count, 60, so Prometheus returns `1`. Grafana displays that `0–1` ratio as a percentage, which turns `1` into **CPU coverage = 100%**.
+
+If one known Pod has no CPU samples, the smaller count is zero. The dashboard then shows **Shortest history = 0 seconds** and **CPU coverage = 0%**.
 
 The Kubernetes API does not count Prometheus samples, so there is no matching `kubectl` command for this card either.
 
