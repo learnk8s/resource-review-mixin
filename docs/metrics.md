@@ -303,42 +303,70 @@ Chapter 3 explains both limits. **Sampling Trades Detail for Volume** shows how 
 |---|---|
 | ![CPU coverage shows 100% in Workload Context](assets/dashboard-cpu-coverage.png) | ![Prometheus returns 1, which Grafana displays as 100%](assets/prometheus-cpu-coverage.png) |
 
-Read the table and the six cards together. They show which revision and image are running, the requests and limits set on the container, and how much data Prometheus has for the two Pods. They also show that both Pods belong to the same ReplicaSet and ran on the same node during the selected hour. With that context in place, the next section compares the CPU and memory values of the two Pods separately, so one Pod cannot disappear inside a workload-wide average.
+Read the table and the six cards together. They show which revision and image are running, the requests and limits set on the container, and how much data Prometheus has for the two Pods. They also show that both Pods belong to the same ReplicaSet and ran on the same node during the selected hour. Keep the same hour selected and open **CPU Evidence**. Its graphs and table show what happened to each Pod without mixing their measurements.
 
 ## CPU Evidence
 
-CPU usage is measured in cores, and one core means one CPU-second used during one wall-clock second. The recording rule starts with the five-minute [`rate()`](https://prometheus.io/docs/prometheus/latest/querying/functions/#rate) of cumulative CPU time:
+### CPU usage over time
+
+The **CPU usage over time** graph draws CPU usage across the selected hour. CPU usage is measured in cores, and one core means one CPU-second used during one wall-clock second. This follows **Measure CPU time received** in Chapter 3: start with the running total in `container_cpu_usage_seconds_total`, then use a five-minute [`rate()`](https://prometheus.io/docs/prometheus/latest/querying/functions/#rate) to see how quickly it increased:
 
 ```promql
 rate(container_cpu_usage_seconds_total[5m])
 ```
 
-If CPU usage spikes for a few seconds, the five-minute average makes that spike look smaller.
+If this query returns `0.5`, the container used half a CPU core on average during those five minutes. A spike that lasts only a few seconds looks smaller after it is averaged over five minutes.
 
-- **Average CPU** is the arithmetic mean of the CPU samples in the selected range. If the samples are `0.10`, `0.20`, and `0.45` cores, the average is `0.25` cores. This value does not contain the highest individual sample; read p95 and maximum CPU for that value.
+![CPU usage over time for the two review-sample Pods](assets/dashboard-cpu-usage-over-time.png)
 
-- **p95 CPU** is the value that 95 percent of the recorded samples stayed at or below. If average CPU is `0.25` and p95 is `0.70`, 95 percent of the samples are at or below `0.70` cores. The highest 5 percent of samples are excluded from p95 and remain visible in Maximum CPU.
+### p95 and maximum CPU usage
 
-- **Maximum CPU** is the highest sampled five-minute rate in the selected range. It cannot reconstruct a shorter burst that happened between scrapes.
+The **p95 and maximum CPU usage** table calculates both values separately for each Pod UID. **p95 CPU** is the value that 95 percent of the samples stayed at or below. **Maximum CPU** is the highest sampled five-minute rate. As **Sampling Trades Detail for Volume** explains in Chapter 3, these samples show the busiest interval Prometheus recorded, but they cannot rebuild a shorter burst that happened between scrapes.
 
-- **CPU request** is the amount Kubernetes uses when it schedules the Pod. The value comes from the Pod specification rather than CPU measurements. If maximum CPU is `0.60` cores and the request is `0.50` cores, the difference is `-0.10` because usage exceeded the request by one tenth of a core.
+![p95 and maximum CPU usage for each review-sample Pod](assets/dashboard-cpu-p95-maximum.png)
+
+### CPU request and limit
+
+The **CPU request and limit** graph places the two configured values beside each other. The request is the amount Kubernetes uses when it schedules the Pod, while the limit is the quota that can stop the container from running. **Interpret usage against the CPU request and limit** in Chapter 3 uses a container with a `500m` request, a one-core limit, and `0.8` cores of usage: it used more than its request but remained below its limit. The dashboard keeps the same comparison with the selected Pod and revision.
+
+![CPU request and limit for the two review-sample Pods](assets/dashboard-cpu-request-limit.png)
+
+### Difference between the request and p95 usage
+
+The book first compares CPU usage with the request to show whether the container used more or less CPU than Kubernetes reserved for it. The **Difference between the request and p95 usage** table continues that comparison with the same request and p95 shown in the CPU Evidence panels:
 
 ```text
-difference       = request - usage statistic
+difference       = request - p95 CPU
 difference ratio = difference / request
 ```
 
-The ratio disappears when the request is missing or configured as zero.
+If the request is `0.50` cores and p95 CPU is `0.60` cores, the difference is `-0.10` cores and the ratio is `-20%`. The negative value means p95 CPU was above the request during this hour; it does not mean the request should be changed. The dashboard leaves both difference cells empty when the request is missing or set to zero.
 
-- **CPU limit** is the container's CPU quota. The “CPU maximum / limit” bar divides the highest sampled usage by that configured value. A bar at 80 percent means the highest sampled five-minute rate reached 80 percent of the limit. It does not promise 20 percent of safe headroom because a shorter burst may be absent from the samples.
+![Request minus p95 CPU and difference ratio for each review-sample Pod](assets/dashboard-cpu-request-p95-difference.png)
 
-- **Throttled periods** measures how many CPU quota periods included throttling. A value of 20 percent means the Linux CPU controller stopped the container in 20 percent of the observed quota periods. A 20 percent throttled-period ratio and a 20 percent latency increase describe unrelated measurements.
+### CPU throttled-period percentage
 
-- **Throttled time** measures accumulated task time stopped by the quota. Several tasks can wait at once, which can raise the rate above one second per second. Both throttling metrics prove that the quota was active, while latency, throughput, or another service-level signal must show the application impact.
+The **CPU throttled-period percentage** graph answers the question asked in **Measure whether a CPU limit stopped the work** in Chapter 3. It divides `container_cpu_cfs_throttled_periods_total` by `container_cpu_cfs_periods_total` to show the percentage of quota periods in which the container used its quota and had to wait. A value of 20 percent means Linux throttled the container in 20 percent of the observed periods.
 
-- **CPU pressure** uses Pressure Stall Information, or PSI, to measure time that runnable tasks spent waiting for CPU. The [Linux PSI interface](https://docs.kernel.org/accounting/psi.html) reports waiting time without assigning a cause. Compare the same time window with CPU throttling, the CPU limit, node pressure, and application latency.
+This percentage shows how often the limit stopped the container, but it does not show how long the container had to wait. The next graph keeps that waiting time separate so the two values are not mistaken for the same measurement.
 
-An empty CPU-pressure or throttled-time value means Prometheus received no matching source series. In particular, some kubelet/cAdvisor versions expose throttled periods without exposing `container_cpu_cfs_throttled_seconds_total`; the dashboard reports that evidence as unavailable instead of substituting zero.
+![CPU throttled-period percentage for the two review-sample Pods](assets/dashboard-cpu-throttled-period-percentage.png)
+
+### CPU throttled time
+
+After using throttled periods to show how often the limit stopped the container, Chapter 3 says to check how long the throttling lasted when the percentage alone is not enough. The **CPU throttled time** graph shows that duration for each second. If two threads are both held back for one second, the counter adds two seconds, so the graph can rise above one second per second. An empty graph means Prometheus did not receive `container_cpu_cfs_throttled_seconds_total` for the selected Pod and time range.
+
+![CPU throttled time for the two review-sample Pods](assets/dashboard-cpu-throttled-time.png)
+
+### CPU pressure when PSI metrics exist
+
+Throttling shows that the CPU limit stopped the container, but ready-to-run work can also wait on a busy node without hitting a limit. **Measure whether work waited for CPU** in Chapter 3 uses PSI to keep those cases apart. The **CPU pressure when PSI metrics exist** graph measures the part of the selected time when at least one runnable task was waiting for CPU. The [Linux PSI interface](https://docs.kernel.org/accounting/psi.html) records the waiting time, but it does not say whether the CPU limit or a busy node caused the wait.
+
+PSI is optional. When the node does not expose the metric, the graph stays empty. The dashboard treats that empty result as unavailable data rather than zero pressure.
+
+This is the comparison made in **Connect CPU measurements to application work**: usage shows the CPU time the container received, pressure shows when ready-to-run work waited, and throttling shows when the CPU limit stopped it. Application latency and throughput are still needed to see whether that waiting affected useful work.
+
+![CPU pressure for the two review-sample Pods](assets/dashboard-cpu-pressure.png)
 
 ## Memory Evidence
 

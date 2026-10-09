@@ -42,7 +42,10 @@ expected_variables='["datasource","cluster","namespace","workload_type","workloa
   and ([$panels[] | select(.id == 9).title] == ["Current workload revisions and configuration"])
   and ([ $panels[] | select(.id == 9).targets[].legendFormat ] | sort == ["Available observation history", "CPU limit", "CPU request", "Memory limit", "Memory request", "Replica count", "Revision age"])
   and (all($panels[] | select(.id == 9).targets[]; .expr | contains("image, image_id")))
-  and ([$panels[] | select(.id == 61).title] == ["Peak CPU as % of limit"])
+  and ([ $panels[] | select(.id == 21 or .id == 22 or .id == 23 or .id == 24 or .id == 25 or .id == 26 or .id == 27).title ] | sort == (["CPU usage over time", "p95 and maximum CPU usage", "CPU request and limit", "Difference between the request and p95 usage", "CPU throttled-period percentage", "CPU throttled time", "CPU pressure when PSI metrics exist"] | sort))
+  and ([$panels[] | select(.id == 24) | .gridPos | {x, w}] == [{"x":0,"w":24}])
+  and (([$panels[] | select(.id == 23).gridPos.y][0]) < ([$panels[] | select(.id == 24).gridPos.y][0]))
+  and (([$panels[] | select(.id == 24).gridPos.y][0]) < ([$panels[] | select(.id == 25).gridPos.y][0]))
   and ([$panels[] | select(.id == 62).title] == ["Peak memory as % of limit"])
   and ([$panels[] | select(.id == 51).targets[] | select(.refId == "AA").expr | select(contains("CPU PSI unavailable") and contains("Memory PSI unavailable") and contains("CPU throttled-period evidence unavailable") and contains("CPU throttled-time evidence unavailable"))] | length == 1)
   and ([$panels[] | select(.id == 52)] | length == 0)
@@ -57,7 +60,7 @@ expected_variables='["datasource","cluster","namespace","workload_type","workloa
   and ([$expressions[] | select(contains("or vector(0)"))] | length == 0)
   and ([.panels[] | (.gridPos.y + .gridPos.h)] | max <= 45)
   and (all(.panels[] | select(.id == 20 or .id == 30 or .id == 50); .collapsed == true and (.panels | length > 0)))
-  and (([.panels[] | select(.id == 61).gridPos.y][0]) < ([.panels[] | select(.id == 41).gridPos.y][0]))
+  and (([.panels[] | select(.id == 21).gridPos.y][0]) < ([.panels[] | select(.id == 41).gridPos.y][0]))
   and ([$panels[] | select(.id == 41 or .id == 42).targets[].expr | select(contains("avg_over_time"))] | length == 2)
   and (all($panels[] | select(.id == 41 or .id == 42);
     ([.fieldConfig.overrides[]

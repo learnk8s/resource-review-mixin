@@ -115,6 +115,7 @@ printf '%s\n' "$kind_output"
   kube-prometheus-stack \
   --repo https://prometheus-community.github.io/helm-charts \
   --version "$KUBE_PROMETHEUS_STACK_VERSION" \
+  --values "$ROOT_DIR/kube-prometheus-stack-values.yaml" \
   --namespace monitoring \
   --create-namespace \
   --wait \
@@ -206,6 +207,10 @@ wait_for_query_value \
 wait_for_query_value \
   'count(max_over_time(resource_review:container_cpu_throttled_periods:ratio_rate5m{namespace="resource-review-test",workload="review-sample"}[5m]) > 0)' \
   'CPU throttling is recorded for every constrained replica' \
+  3
+wait_for_query_value \
+  'count(max_over_time(resource_review:container_cpu_throttled_seconds:rate5m{namespace="resource-review-test",workload="review-sample"}[5m]) > 0)' \
+  'CPU throttled time is recorded for every constrained replica' \
   3
 wait_for_query \
   'max(resource_review:container_restarts_total{namespace="resource-review-test",workload="failure-sample"})' \
