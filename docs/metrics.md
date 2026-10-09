@@ -472,26 +472,78 @@ The **Average CPU** and **Average working set** columns in this dashboard are no
 
 ## Review Table
 
-### Understand zero and empty values
+![Review Table showing one row for the selected workload revision and container](assets/dashboard-review-table.gif)
 
-`0` and an empty cell mean different things. If the throttling table shows `0`, Prometheus received the metric and measured no throttling during the selected time range. If the cell is empty, Prometheus has no matching data for that Pod and time range.
+Chapter 3 first keeps workload revisions separate, then compares their Pods before bringing the results into one summary. The **Review Table** follows the same order. It shows one row for each workload revision and container, so values from two releases never become one row. When a mutable image tag produced more than one image ID inside the same revision, the row remains whole and **Missing evidence warnings** reports that difference.
 
-The data may be missing because the node does not expose the metric, Prometheus missed the scrape, or the Pod did not run during that period. The dashboard leaves missing data empty instead of displaying a false `0`.
+### Current requests and limits
 
-The **Missing evidence warnings** column in the **Review Table** counts matching warning signals for each workload revision, container, and immutable image. Those signals identify what is missing or why a value could not be calculated:
+The **Current CPU request**, **Current CPU limit**, **Current memory request**, and **Current memory limit** columns show the last configured value Prometheus saw during the selected period. This keeps a completed or replaced revision readable after its Pods have gone. An empty cell means the request or limit was not configured; it does not mean zero.
 
-- **CPU or memory usage unavailable:** Prometheus has no usage samples.
-- **CPU throttled-period or throttled-time evidence unavailable:** kubelet/cAdvisor did not expose the matching counter for this container and time range.
-- **Total memory, working set, RSS, or cache unavailable:** cAdvisor did not expose that memory view for this container and time range.
-- **CPU or memory pressure unavailable:** the node does not expose the optional pressure metric.
-- **Request or limit not configured:** the container does not have that value in its resource configuration.
-- **OOM or restart counter unavailable:** Prometheus has no matching counter for the container.
-- **Request is zero:** the dashboard cannot divide by zero to calculate the ratio.
-- **Revision falls back to Pod UID:** the mixin could not find a shared controller revision.
-- **Multiple immutable images:** one revision contains more than one image ID.
-- **CPU sample coverage below 80 percent:** Prometheus collected fewer than 80 percent of the expected samples.
+Chapter 3's **Interpret usage against the CPU request and limit** section explains why both CPU values stay beside usage: the request affects placement and CPU weight, while the limit sets the quota that can stop the container. The same row keeps the memory request and hard memory limit beside the memory maximum.
 
-The **Review Table** keeps each immutable image in a separate row and shows maximum throttled-period ratio, maximum throttled-time rate, maximum CPU pressure, maximum memory pressure, cAdvisor OOM events, Kubernetes `OOMKilled` state, and restarts alongside CPU p95 and maximum, total memory maximum, replica count, and observation duration. Here, **Replica count** is the number of distinct Pod UIDs observed during the selected time range, so replaced and short-lived replicas remain part of the revision evidence. Request and limit columns use the last value observed during the selected time range, so a revision that is no longer running retains the configuration recorded while it existed. Optional or unavailable evidence remains an empty cell, while **Missing evidence warnings** reports the matching warning count so absence can be distinguished from a measured zero.
+### CPU p95 and maximum
+
+Prometheus calculates p95 and maximum CPU separately for every Pod, then the table keeps the highest replica result in the revision row. This preserves the busiest Pod instead of averaging it away. CPU is shown in cores, so `0.5` means half a CPU core.
+
+The p95 comes from five-minute CPU rates collected during the selected period. As Chapter 3 explains under **Sampling Trades Detail for Volume**, this describes the busiest collected intervals, not a microsecond-scale CPU spike.
+
+### Memory maximum
+
+**Memory maximum** is the highest total container memory value seen on any Pod in the revision during the selected period. It uses total cgroup memory rather than working set. Chapter 3's **Measure memory from more than one angle** section explains why the two are not interchangeable: total memory includes all memory charged to the cgroup, while working set subtracts inactive file cache.
+
+Use the Memory Evidence section when you need the working-set, RSS, and cache values behind this summary.
+
+### Absolute and percentage differences from requests
+
+The table compares each request with the busiest value kept in the row:
+
+```text
+CPU absolute difference from request    = CPU request - CPU p95
+CPU percentage difference from request  = (CPU request - CPU p95) / CPU request
+
+Memory absolute difference from request    = memory request - memory maximum
+Memory percentage difference from request  = (memory request - memory maximum) / memory request
+```
+
+A negative result means usage was above the request. For example, a `0.50`-core request and `0.60`-core p95 produce `-0.10` cores and `-20%`. These numbers describe the selected period; they do not say that changing the request is safe. The percentage cell stays empty when its request is missing or zero because division by zero has no result.
+
+### Replica count
+
+**Replica count** counts different Pod UIDs seen during the selected period. It includes Pods that were replaced or ran only briefly, so it may be larger than the Deployment's current desired or ready replica count.
+
+This follows **Compare replicas before aggregating them** in Chapter 3: each Pod is measured separately first, and only the highest CPU or memory value is carried into this revision row. Open Replica Comparison to see which Pod and node produced the difference.
+
+### Observation duration
+
+**Observation duration** shows the shortest CPU history among the Pods in the row. Prometheus counts the one-minute CPU rule samples for each Pod and multiplies the smallest count by 60 seconds. If one Pod has seven days of samples and a new Pod has ten minutes, the row shows ten minutes.
+
+Chapter 3's **Make Short Revision History Visible** section explains why this stays next to p95: a p95 calculated from a few minutes cannot describe the same range of workload cycles as one calculated from several days. Missing scrapes also shorten this value.
+
+### OOM, restart, throttling, and pressure signals
+
+The row adds the cAdvisor OOM events and Kubernetes container restarts recorded for all Pods in the revision. **OOMKilled** is true when Kubernetes reported that state for at least one of those Pods. These are separate checks because, as **Record both sources of OOM evidence** explains, the cAdvisor counter and Kubernetes' last termination reason do not contain the same history.
+
+**Throttled-period percentage**, **Throttled-time rate**, **CPU pressure**, and **Memory pressure** keep the highest replica value seen during the selected period. Throttling shows that a CPU limit stopped work; pressure shows that work waited for CPU or memory. PSI cells remain empty on nodes that do not publish PSI metrics.
+
+### Missing evidence warnings
+
+`0` and an empty cell mean different things. Zero means Prometheus received the metric and measured zero. An empty cell means no matching sample was available. The **Missing evidence warnings** column counts different warning types for the row, not the number of Pods that raised the same warning.
+
+The count covers these cases:
+
+- CPU usage is unavailable.
+- CPU throttled-period or throttled-time data is unavailable.
+- Total memory, working set, RSS, or cache is unavailable.
+- Optional CPU or memory PSI data is unavailable.
+- A CPU or memory request or limit is not configured.
+- The cAdvisor OOM counter or Kubernetes restart counter is unavailable.
+- A CPU or memory request is zero, so its percentage cannot be calculated.
+- No shared controller revision was found, so the Pod UID is used as the revision.
+- One revision and container contains more than one immutable image ID.
+- Prometheus collected less than 80 percent of the expected CPU samples.
+
+The warning count keeps a missing value from looking like a measured zero. Use the CPU Evidence, Memory Evidence, and Replica Comparison sections to see the Pod-level values behind the row.
 
 ## Find the Pod behind each value
 
