@@ -370,23 +370,69 @@ This is the comparison made in **Connect CPU measurements to application work**:
 
 ## Memory Evidence
 
-The mixin records four separate cgroup memory values: total usage, working set, RSS, and cache. Compare them for the same Pod, container, and time range; they measure different parts of cgroup memory accounting.
+Chapter 3 starts **Measure memory from more than one angle** with a warning: no single container metric means "memory the application needs." The Memory Evidence panels therefore keep total memory, working set, RSS, and cache separate for the same Pod, container, and selected time period.
 
-- **Total memory** is everything charged to the container cgroup. It can include anonymous memory, file cache, and other kernel-accounted memory.
+### Total container memory
 
-- **Working set** is commonly cAdvisor's total usage minus inactive file cache. It estimates recently active memory rather than “memory the application can never release.”
+The **Total container memory** graph shows everything currently charged to the container cgroup through `container_memory_usage_bytes`. This can include anonymous memory, file cache, and memory used by the kernel, so the value is not the same as the application's heap. Chapter 3 begins **Compare total usage and working set** with this broad total before removing any cache.
 
-- **RSS** mainly represents resident anonymous memory. Application heaps and stacks often contribute here, but RSS is still a cgroup value rather than a language-runtime heap measurement.
+![Total container memory for the two review-sample Pods](assets/dashboard-memory-total.png)
 
-- **Cache** represents file content retained for reuse, and the kernel may reclaim some of it when the node needs memory. RSS plus cache does not always equal total usage because these values come from different parts of cgroup accounting.
+### Working-set memory
 
-- **Memory request** affects scheduling, while **memory limit** is the cgroup ceiling that can lead to an OOM event when memory cannot be reclaimed. The “Memory maximum / limit” bar compares the highest sampled total memory with the configured limit. An absent bar means the limit or memory evidence is unavailable.
+The **Working-set memory** graph shows `container_memory_working_set_bytes`. As **Compare total usage and working set** explains, cAdvisor calculates it by subtracting inactive file cache from total usage:
 
-### OOM and restart evidence
+```text
+working set = total usage - inactive file cache
+```
 
-If `Last terminated reason` is `OOMKilled`, the most recent recorded termination happened because the container ran out of memory. This value only describes the latest termination, and a newer termination replaces it.
+Active file cache and some kernel memory can remain in this value even though Linux may reclaim them later. Working set is therefore not the same as application memory or memory that Linux can never reclaim.
 
-`Restarts` tells you how many times the container restarted during the selected period, but it does not record the cause of each restart. `OOM events` shows how many out-of-memory events cAdvisor recorded during the same period. Check the Pod events and application logs when you need the cause of earlier restarts.
+![Working-set memory for the two review-sample Pods](assets/dashboard-memory-working-set.png)
+
+### RSS and cache
+
+Total and working-set memory show the broad level, while **Separate resident memory from file cache** in Chapter 3 uses RSS and cache to explain part of that total. The **RSS and cache** graph keeps both lines visible. RSS mainly shows resident anonymous memory, which often includes heaps and stacks. Cache shows file contents that Linux has kept in memory for reuse and may reclaim later. RSS plus cache does not always equal total memory because the cgroup can charge other memory too.
+
+![RSS and cache for the two review-sample Pods](assets/dashboard-memory-rss-cache.png)
+
+### Maximum values for the selected period
+
+The **Maximum values for the selected period** table shows the highest sampled total, working-set, RSS, and cache value for each Pod UID. These are the largest values Prometheus saved during the selected period. As Chapter 3 explains in **Sampling Trades Detail for Volume**, a short peak between two scrapes can still be missed.
+
+![Maximum total, working-set, RSS, and cache values for each review-sample Pod](assets/dashboard-memory-maximum-values.png)
+
+### Memory request and limit
+
+The **Memory request and limit** graph places the two configured values beside each other. Kubernetes uses the request when it schedules the Pod. The limit is the cgroup ceiling; if the container reaches it and Linux cannot reclaim enough memory, an allocation can fail and a process can be killed. A request or limit that was not configured stays empty instead of appearing as zero.
+
+![Memory request and limit for the two review-sample Pods](assets/dashboard-memory-request-limit.png)
+
+### Memory pressure when PSI metrics exist
+
+Memory can slow a container before an allocation fails. **Measure time lost to memory pressure** in Chapter 3 uses PSI to count time when work could not continue while Linux searched for memory it could reclaim. The **Memory pressure when PSI metrics exist** graph shows that waiting as a percentage of the selected time. A container can stay below its limit and still show pressure, and an OOM can happen without a steady rise in pressure.
+
+PSI is optional. When the node does not provide `container_pressure_memory_waiting_seconds_total`, the graph stays empty rather than showing a false zero.
+
+![Memory pressure for the two review-sample Pods](assets/dashboard-memory-pressure.png)
+
+### cAdvisor OOM events
+
+The **cAdvisor OOM events** table shows how many new events `container_oom_events_total` recorded during the selected period. In **Record both sources of OOM evidence**, Chapter 3 uses the same counter to count allocation failures seen by cAdvisor. A value of `2` means cAdvisor recorded about two new OOM events for that Pod and container during the selected time.
+
+![cAdvisor OOM event count for each review-sample Pod](assets/dashboard-memory-oom-events.png)
+
+### Kubernetes `OOMKilled` state
+
+cAdvisor's counter is only one side of the check. Kubernetes also stores the last termination reason reported for a container. The **Kubernetes `OOMKilled` state** table shows whether `OOMKilled` was seen as that reason during the selected period. This confirms that Kubernetes saw an OOM kill, but it is not a full count: a later termination can replace the reason.
+
+![Kubernetes OOMKilled state for each review-sample Pod](assets/dashboard-memory-oomkilled-state.png)
+
+### Container restarts
+
+The **Container restarts** table shows how many times the container restarted during the selected period. A restart count does not say why the restart happened. Read it with the cAdvisor OOM event count and the Kubernetes `OOMKilled` state, then check Pod events and application logs when the cause is still unclear.
+
+![Container restart count for each review-sample Pod](assets/dashboard-memory-container-restarts.png)
 
 ## Replica Comparison
 

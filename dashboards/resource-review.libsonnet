@@ -39,8 +39,6 @@ function(config)
   local average(metric) = 'avg_over_time(%s[$__range])' % metric;
   local maximum(metric) = 'max_over_time(%s[$__range])' % metric;
   local p95(metric) = 'quantile_over_time(0.95, %s[$__range])' % metric;
-  local lastTerminatedReason = 'resource_review:container_last_terminated_reason{%s}' % selector;
-  local lastTerminatedExitCode = 'resource_review:container_last_terminated_exit_code{%s}' % selector;
 
   local summarize(expr) = 'max by (%s) (%s)' % [summaryLabels, expr];
   local summaryCpuRequest = summarize(last(cpuRequest));
@@ -180,44 +178,6 @@ function(config)
       id: id,
       fieldConfig+: {
         defaults+: { thresholds: { mode: 'absolute', steps: [{ color: 'blue', value: null }] } },
-      },
-    };
-
-  // A compact, at-a-glance complement to the detailed evidence tables: one
-  // horizontal bar per series (typically per Pod/container), scaled 0-1.
-  // Used only for ratios already computed elsewhere on the dashboard (for
-  // example maximum usage as a share of the last observed limit), so it adds
-  // no new PromQL semantics, only a faster way to scan them.
-  local bargauge(id, title, description, pos, targets, unit='percentunit') =
-    g.panel.barGauge.new(title)
-    + g.panel.barGauge.panelOptions.withDescription(description)
-    + g.panel.barGauge.panelOptions.withGridPos(pos.h, pos.w, pos.x, pos.y)
-    + g.panel.barGauge.queryOptions.withDatasource(ds.type, ds.uid)
-    + g.panel.barGauge.queryOptions.withTargets(targets)
-    + g.panel.barGauge.standardOptions.withUnit(unit)
-    + g.panel.barGauge.standardOptions.withMin(0)
-    + g.panel.barGauge.standardOptions.withMax(1)
-    + g.panel.barGauge.standardOptions.withMappings([
-      { type: 'special', options: { match: 'null', result: { text: 'No limit or evidence', color: 'orange' } } },
-    ])
-    + g.panel.barGauge.standardOptions.withOverrides([])
-    + g.panel.barGauge.standardOptions.color.withMode('thresholds')
-    + g.panel.barGauge.options.withDisplayMode('gradient')
-    + g.panel.barGauge.options.withOrientation('horizontal')
-    + g.panel.barGauge.options.withShowUnfilled(true)
-    + g.panel.barGauge.options.withReduceOptions({ calcs: ['lastNotNull'], fields: '', values: false })
-    + {
-      id: id,
-      fieldConfig+: {
-        defaults+: {
-          thresholds: {
-            mode: 'absolute',
-            steps: [
-              { color: 'green', value: null },
-              { color: 'red', value: config.limitHeadroomWarningRatio },
-            ],
-          },
-        },
       },
     };
 
@@ -644,51 +604,49 @@ function(config)
     ]),
 
     row(30, 'Memory Evidence', 15, true, [
-      bargauge(62, 'Peak memory as % of limit', 'Highest sampled total memory in the selected time window as a percentage of the configured limit for each Pod and container. Omitted when no limit is configured. This does not explain the cause of a large percentage.', grid(0, 16, 24, 5), [
-        target('A', '(' + maximum(memoryUsage) + ') / (' + last(memoryLimit) + ') and on (' + matchLabels + ') (' + last(memoryLimit) + ' > 0)', '{{pod}} / {{container}}', true),
-      ]),
-      timeSeries(31, 'Total and working-set memory', 'Total is memory charged to the cgroup. Working set subtracts inactive file cache and is not equivalent to application memory. Request is dashed orange; limit is dashed red.', grid(0, 21, 24, 9), [
+      timeSeries(31, 'Total container memory', 'Memory currently charged to the container cgroup. This includes more than application heap and can include file cache and kernel-accounted memory.', grid(0, 16, 24, 9), [
         target('A', memoryUsage, '{{pod}} / {{container}} total'),
+      ], 'bytes'),
+      timeSeries(32, 'Working-set memory', 'Total container memory minus inactive file cache. This is not the same as application memory or memory that Linux can never reclaim.', grid(0, 25, 24, 9), [
         target('B', memoryWss, '{{pod}} / {{container}} working set'),
-        target('C', memoryRequest, '{{pod}} / {{container}} request'),
-        target('D', memoryLimit, '{{pod}} / {{container}} limit'),
-      ], 'bytes', overrides=[dashedOverride('C', 'orange'), dashedOverride('D', 'red')]),
-      timeSeries(32, 'RSS and cache', 'RSS primarily reflects resident anonymous memory; cache reflects file content retained for reuse. They do not partition every charged byte.', grid(0, 30, 24, 8), [
+      ], 'bytes'),
+      timeSeries(33, 'RSS and cache', 'RSS primarily reflects resident anonymous memory; cache reflects file content retained for reuse. They do not account for every byte in total container memory.', grid(0, 34, 24, 8), [
         target('A', memoryRss, '{{pod}} / {{container}} RSS'),
         target('B', memoryCache, '{{pod}} / {{container}} cache'),
       ], 'bytes'),
-      table(33, 'Memory distribution by Pod execution', 'Average and maximum remain per Pod UID. Peaks between scrapes can still be missed. The limit ratio uses total memory because the cgroup limit applies to total charged usage.', grid(0, 38, 24, 8), [
-        target('A', average(memoryUsage), 'Total average', true, 'table'),
-        target('B', maximum(memoryUsage), 'Total maximum', true, 'table'),
-        target('C', average(memoryWss), 'Working-set average', true, 'table'),
-        target('D', maximum(memoryWss), 'Working-set maximum', true, 'table'),
-        target('E', maximum(memoryRss), 'RSS maximum', true, 'table'),
-        target('F', maximum(memoryCache), 'Cache maximum', true, 'table'),
-        target('G', '(' + maximum(memoryUsage) + ') / (' + last(memoryLimit) + ') and on (' + matchLabels + ') (' + last(memoryLimit) + ' > 0)', 'Memory max as % of limit', true, 'table'),
+      table(34, 'Maximum values for the selected period', 'The highest sampled total, working-set, RSS, and cache values are calculated separately for each Pod UID over the selected time period.', grid(0, 42, 24, 8), [
+        target('A', maximum(memoryUsage), 'Total maximum', true, 'table'),
+        target('B', maximum(memoryWss), 'Working-set maximum', true, 'table'),
+        target('C', maximum(memoryRss), 'RSS maximum', true, 'table'),
+        target('D', maximum(memoryCache), 'Cache maximum', true, 'table'),
       ], [
-        { ref: 'A', name: 'Total average', unit: 'bytes' },
-        { ref: 'B', name: 'Total maximum', unit: 'bytes' },
-        { ref: 'C', name: 'Working-set average', unit: 'bytes' },
-        { ref: 'D', name: 'Working-set maximum', unit: 'bytes' },
-        { ref: 'E', name: 'RSS maximum', unit: 'bytes' },
-        { ref: 'F', name: 'Cache maximum', unit: 'bytes' },
-        { ref: 'G', name: 'Memory max as % of limit', unit: 'percentunit' },
+        { ref: 'A', name: 'Total maximum', unit: 'bytes' },
+        { ref: 'B', name: 'Working-set maximum', unit: 'bytes' },
+        { ref: 'C', name: 'RSS maximum', unit: 'bytes' },
+        { ref: 'D', name: 'Cache maximum', unit: 'bytes' },
       ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
-      timeSeries(34, 'Memory pressure (optional PSI)', 'Fraction of time tasks could not make progress while the kernel reclaimed memory. No data means unavailable, not zero.', grid(0, 46, 24, 8), [
+      timeSeries(35, 'Memory request and limit', 'The request is used when Kubernetes schedules the Pod. The limit is the cgroup ceiling. Request is dashed orange; limit is dashed red.', grid(0, 50, 24, 8), [
+        target('A', memoryRequest, '{{pod}} / {{container}} request'),
+        target('B', memoryLimit, '{{pod}} / {{container}} limit'),
+      ], 'bytes', overrides=[dashedOverride('A', 'orange'), dashedOverride('B', 'red')]),
+      timeSeries(36, 'Memory pressure when PSI metrics exist', 'Fraction of time tasks could not make progress while Linux tried to reclaim memory. No data means unavailable, not zero.', grid(0, 58, 24, 8), [
         target('A', memoryPressure, '{{pod}} / {{node}} / {{container}}'),
       ], 'percentunit'),
-      table(35, 'OOM and restart evidence', 'Counters were enriched with revision, Pod UID, node, and image at recording time; reused Pod names cannot inherit old evidence. Termination reason and exit code cover every cause, not only OOM.', grid(0, 54, 24, 9), [
+      table(37, 'cAdvisor OOM events', 'New out-of-memory events reported by cAdvisor during the selected time period. Each row keeps the Pod UID and revision that produced the counter.', grid(0, 66, 24, 8), [
         target('A', oomEvents, 'cAdvisor OOM events', true, 'table'),
-        target('B', oomKilled, 'OOMKilled last-state seen', true, 'table'),
-        target('C', restarts, 'Restarts', true, 'table'),
-        target('D', last(lastTerminatedReason), 'Last terminated reason', true, 'table'),
-        target('E', last(lastTerminatedExitCode), 'Last exit code', true, 'table'),
       ], [
         { ref: 'A', name: 'OOM events', unit: 'short' },
-        { ref: 'B', name: 'OOMKilled seen', unit: 'bool' },
-        { ref: 'C', name: 'Restarts', unit: 'short' },
-        { ref: 'E', name: 'Last exit code', unit: 'short' },
-      ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id', 'Value #D']),
+      ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
+      table(38, 'Kubernetes OOMKilled state', 'Whether OOMKilled was seen as the last termination reason during the selected time period. A newer termination reason can replace it, so this is not a count of every OOM kill.', grid(0, 74, 24, 8), [
+        target('A', oomKilled, 'OOMKilled', true, 'table'),
+      ], [
+        { ref: 'A', name: 'OOMKilled', unit: 'bool' },
+      ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
+      table(39, 'Container restarts', 'How many times each container restarted during the selected time period. This count does not say why the restart happened.', grid(0, 82, 24, 8), [
+        target('A', restarts, 'Restarts', true, 'table'),
+      ], [
+        { ref: 'A', name: 'Restarts', unit: 'short' },
+      ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
     ]),
 
   ], function(panel) panel.gridPos.y), setPanelIDs=false)

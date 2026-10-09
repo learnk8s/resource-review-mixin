@@ -192,8 +192,18 @@
       "record": "resource_review:container_restarts_total"
     - "expr": |
         max by (cluster, namespace, workload_type, workload, revision, revision_source, pod, uid, node, container, image, image_id) (
-          max by (cluster, namespace, pod, uid, container) (
-          kube_pod_container_status_last_terminated_reason{job="kube-state-metrics", reason="OOMKilled"} == 1
+          (
+          (
+            max by (cluster, namespace, pod, uid, container) (
+              kube_pod_container_status_last_terminated_reason{job="kube-state-metrics", reason="OOMKilled"} == 1
+            )
+          )
+          or on (cluster, namespace, pod, uid, container)
+          (
+            0 * max by (cluster, namespace, pod, uid, container) (
+              kube_pod_container_status_last_terminated_reason{job="kube-state-metrics"}
+            )
+          )
         )
         
           * on (cluster, namespace, pod, uid, container)
