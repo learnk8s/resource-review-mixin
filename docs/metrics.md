@@ -410,7 +410,7 @@ The **Memory request and limit** graph places the two configured values beside e
 
 ### Memory pressure when PSI metrics exist
 
-Memory can slow a container before an allocation fails. **Measure time lost to memory pressure** in Chapter 3 uses PSI to count time when work could not continue while Linux searched for memory it could reclaim. The **Memory pressure when PSI metrics exist** graph shows that waiting as a percentage of the selected time. A container can stay below its limit and still show pressure, and an OOM can happen without a steady rise in pressure.
+Memory can slow a container before an allocation fails. **Measure time lost to memory pressure** in Chapter 3 uses PSI to count time when work could not continue while Linux searched for memory it could reclaim. The **Memory pressure when PSI metrics exist** graph shows that waiting as a percentage of each five-minute window. A container can stay below its limit and still show pressure, and an OOM can happen without a steady rise in pressure.
 
 PSI is optional. When the node does not provide `container_pressure_memory_waiting_seconds_total`, the graph stays empty rather than showing a false zero.
 
@@ -424,7 +424,7 @@ The **cAdvisor OOM events** table shows how many new events `container_oom_event
 
 ### Kubernetes `OOMKilled` state
 
-cAdvisor's counter is only one side of the check. Kubernetes also stores the last termination reason reported for a container. The **Kubernetes `OOMKilled` state** table shows whether `OOMKilled` was seen as that reason during the selected period. This confirms that Kubernetes saw an OOM kill, but it is not a full count: a later termination can replace the reason.
+cAdvisor's counter is only one side of the check. Kubernetes also stores the last termination reason reported for a container. The **Kubernetes `OOMKilled` state** table shows `True` when `OOMKilled` was seen as that reason during the selected period and `False` when Kubernetes reported another reason. An empty value means Prometheus did not receive the termination-state metric. `True` confirms that Kubernetes saw an OOM kill, but it is not a full count: a later termination can replace the reason.
 
 ![Kubernetes OOMKilled state for each review-sample Pod](assets/dashboard-memory-oomkilled-state.png)
 
@@ -436,24 +436,39 @@ The **Container restarts** table shows how many times the container restarted du
 
 ## Replica Comparison
 
-The **CPU by Pod execution** table reads the same CPU recording rule three times over the selected hour, then keeps throttled-period, throttled-time, and optional CPU-pressure evidence on the same Pod row:
+Chapter 3 reaches **Compare replicas before aggregating them** after attaching every measurement to its workload, revision, Pod, and node. The book keeps each replica separate because Pods from the same revision can receive different traffic or run on nodes with different levels of contention. The dashboard follows that order: identify each Pod first, then compare its CPU, memory, waiting, and failure values with the other replicas.
+
+### Keep each Pod and node visible
+
+Both comparison tables keep the **Pod** and **Node** columns visible. The recording rules also retain the Pod UID, so a new Pod cannot inherit measurements from an older Pod that used the same name. The table hides the technical UID column after using it to keep those rows separate.
+
+The first table is **CPU usage, throttling, and pressure by Pod and node**. The second is **Memory, OOM events, and restarts by Pod and node**. Each row belongs to one Pod UID, node, and container from the selected revision.
+
+![CPU usage, throttling, and pressure compared for each Pod and node](assets/dashboard-replica-cpu-throttling-pressure.png)
+
+### Compare usage, throttling, pressure, memory, OOM events, and restarts
+
+The CPU table reads the same CPU recording rule three times over the selected period:
 
 ```promql
-avg_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace="resource-review-test", workload_type="deployment", workload="review-sample"}[1h])
+avg_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace="resource-review-test", workload_type="deployment", workload="review-sample"}[$__range])
 
-quantile_over_time(0.95, resource_review:container_cpu_usage_cores:rate5m{namespace="resource-review-test", workload_type="deployment", workload="review-sample"}[1h])
+quantile_over_time(0.95, resource_review:container_cpu_usage_cores:rate5m{namespace="resource-review-test", workload_type="deployment", workload="review-sample"}[$__range])
 
-max_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace="resource-review-test", workload_type="deployment", workload="review-sample"}[1h])
+max_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace="resource-review-test", workload_type="deployment", workload="review-sample"}[$__range])
 ```
 
-The queries return one row for each of the two Pod UIDs:
+Average, p95, and maximum CPU are calculated separately for every Pod UID. The same row shows the highest throttled-period percentage, throttled-time rate, and CPU-pressure percentage recorded during the selected period. **History** shows how many seconds of samples were available, while **Coverage** compares the number received with the number expected from the one-minute recording interval.
 
-| Pod | Average CPU | p95 CPU | Maximum CPU |
-|---|---:|---:|---:|
-| `review-sample-85d7d6b6c6-cnp4v` | 49.63m | 49.98m | 49.99m |
-| `review-sample-85d7d6b6c6-k2wxw` | 49.50m | 49.93m | 49.95m |
+The memory table calculates average and maximum working-set memory separately for the same Pod UID, then adds maximum total memory and maximum five-minute memory-pressure percentage. `increase()` counts new cAdvisor OOM events and container restarts during the selected period. The `OOMKilled` column shows whether Kubernetes reported that last termination reason at any point in the period.
 
-The two Pods used almost the same CPU during this hour. The table still keeps them separate because a single workload average would hide the difference if one Pod later used much more CPU than the other. The revision summary is calculated only after these per-Pod values exist.
+![Memory, OOM events, and restarts compared for each Pod and node](assets/dashboard-replica-memory-oom-restarts.png)
+
+### Do not hide replica differences behind one average
+
+The example in **Compare replicas before aggregating them** shows three Pods with different CPU use, waiting time, throughput, and latency. The Pod on the busy node completes less work and waits longer; averaging its CPU value with the other two would hide that difference.
+
+The **Average CPU** and **Average working set** columns in this dashboard are not workload averages. Each is calculated from one Pod UID's own samples. Pods are never added together or averaged together in Replica Comparison, so a replica with higher throttling, pressure, memory, OOM events, or restarts remains visible beside the others.
 
 ## Review Table
 
