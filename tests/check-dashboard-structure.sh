@@ -70,7 +70,7 @@ expected_variables='["datasource","cluster","namespace","workload_type","workloa
   and ([ $panels[] | select(.id == 51).targets[].legendFormat ] | index("CPU pressure") != null)
   and ([ $panels[] | select(.id == 51).targets[].legendFormat ] | index("Memory pressure") != null)
   and ([ $panels[] | select(.id == 51).targets[].legendFormat ] | index("OOMKilled") != null)
-  and ([.links[].title] | index("Open-source project sponsored by StormForge") != null)
+  and ([.links[].title] == ["Read the Kubernetes Rightsizing guide", "Metric definitions and limitations"])
   and ([$expressions[] | select(contains("or vector(0)"))] | length == 0)
   and ([.panels[] | (.gridPos.y + .gridPos.h)] | max <= 45)
   and (all(.panels[] | select(.id == 20 or .id == 30 or .id == 50); .collapsed == true and (.panels | length > 0)))
