@@ -442,11 +442,18 @@ function(config)
           },
           {
             record: 'resource_review:container_restarts_total',
-            expr: joinKsmIdentity(|||
-              max by (%(clusterLabel)s, namespace, pod, uid, container) (
-                kube_pod_container_status_restarts_total{%(kubeStateMetricsSelector)s}
+            // Kubernetes counts restarts across image changes within one Pod
+            // UID and container. Image labels split that counter.
+            expr: |||
+              max by (%(identityLabels)s, container) (
+                max by (%(clusterLabel)s, namespace, pod, uid, container) (
+                  kube_pod_container_status_restarts_total{%(kubeStateMetricsSelector)s}
+                )
+                * on (%(clusterLabel)s, namespace, pod, uid)
+                  group_left(workload_type, workload, revision, revision_source, node)
+                  resource_review:workload_revision_pod_info
               )
-            ||| % config),
+            ||| % (config { identityLabels: identityLabels }),
           },
           {
             record: 'resource_review:container_last_termination_oomkilled',

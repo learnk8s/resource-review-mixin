@@ -618,6 +618,8 @@ image_id        = registry.example/checkout@sha256:8ad1...
 - **`node` and `container`** show where the container ran and which container produced the value.
 - **`image` and `image_id`** show the configured image and the exact image content used by the container. Two Pods can use the same tag and still have different image IDs.
 
+The restart counter keeps the Pod UID and container but omits `image` and `image_id`. Its cumulative history remains continuous when an image changes within the same Pod.
+
 If `revision_source` is `pod_uid`, the mixin could not find a shared controller revision and used the Pod UID instead. Three Pod UIDs then appear as three revision rows, even when they belong to the same workload.
 
 ## Find the same value in Prometheus
@@ -656,7 +658,7 @@ resource_review:container_cpu_usage_cores:rate5m{
 | `resource_review:container_last_terminated_reason` | label | Latest known termination reason |
 | `resource_review:container_last_terminated_exit_code` | exit code | Latest known terminated exit code |
 
-The first rules identify the Pod and container. Prometheus then [evaluates the remaining rules in order](https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/) and adds the same labels to the CPU, memory, restart, and OOM values.
+The first rules identify the Pod and container. Prometheus then [evaluates the remaining rules in order](https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/) and adds Pod identity and workload labels to the CPU, memory, restart, and OOM values.
 
 ## Check application metrics before changing resources
 

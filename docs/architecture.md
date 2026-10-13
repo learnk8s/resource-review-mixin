@@ -39,6 +39,8 @@ With the Pod and container labels saved, the other recording rules use [PromQL v
 
 Prometheus runs these dependent recording rules together in one rule group every minute. It evaluates them in order at the same timestamp, so each CPU, memory, or event rule can use the Pod and container labels recorded just before it. Grafana reads the resulting `resource_review:*` series across the selected time range. Because the labels are already stored, an old sample keeps its original Pod UID after Kubernetes removes that Pod and creates another one with the same name.
 
+The restart counter joins directly to the Pod identity and keeps the container name. It omits `image` and `image_id` because Kubernetes counts restarts across image changes within the same Pod UID. Those changes must not split one cumulative counter into separate series.
+
 ## What each query must keep attached
 
 Once the recording rules attach these labels, every dashboard query depends on them. After a query change, these should still be the results:
@@ -93,7 +95,7 @@ At one evaluation timestamp, the rule group can produce up to 20 container-level
 - Keep Prometheus samples for the same length of time that you need to review.
 - Store the metrics in a separate system that can answer Prometheus queries when you need a long history from many clusters.
 
-Even when the count is high, historical event series still need `uid`, `revision`, the configured cluster label, `image`, and `image_id`. Those labels keep one Pod, cluster, revision, or image from receiving another one's data. To store fewer series, shorten the retention period or deploy the mixin to fewer clusters.
+Even when the count is high, historical event series still need `uid`, `revision`, and the configured cluster label. OOM series also retain `image` and `image_id`. Restart counters retain one continuous series per Pod UID and container across image changes. To store fewer series, shorten the retention period or deploy the mixin to fewer clusters.
 
 ## How the tests catch a broken join or dashboard
 
