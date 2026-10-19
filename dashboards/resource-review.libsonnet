@@ -28,16 +28,27 @@ function(config)
   local restartCounter = 'resource_review:container_restarts_total{%s}' % selector;
   local oomKilledMetric = 'resource_review:container_last_termination_oomkilled{%s}' % selector;
   local oomEvents = 'increase(%s[$__range])' % oomCounter;
-  local restarts = 'increase(%s[$__range])' % restartCounter;
+  // Combine legacy image-labelled series with the stable Pod/container
+  // counter after each series' increase, without combining different UIDs.
+  local restarts = 'sum without (image, image_id) (increase(%s[$__range]))' % restartCounter;
   local oomKilled = 'max_over_time(%s[$__range])' % oomKilledMetric;
   local matchLabels = '%s, namespace, pod, uid, container' % clusterLabel;
   local revisionContainerLabels = '%s, namespace, workload_type, workload, revision, revision_source, container' % clusterLabel;
   // The final review has exactly one row for a workload revision and
-  // container. Image identity remains on the Pod-level rules and a warning
-  // reports revisions that contain more than one immutable image.
+  // container. Image identity remains on the Pod-level rules, and the image
+  // population column makes combined immutable images visible.
   local summaryLabels = revisionContainerLabels;
   local imageLabels = revisionContainerLabels + ', image, image_id';
   local currentContextLabels = imageLabels;
+  local knownImageIdentity = 'max_over_time(resource_review:workload_revision_pod_container_info{%s, image_id!=""}[$__range])' % selector;
+  local summaryImageCount = 'count by (%s) (count by (%s, image_id) (%s)) or on (%s) (0 * count by (%s) (%s))' % [
+    summaryLabels,
+    summaryLabels,
+    knownImageIdentity,
+    summaryLabels,
+    summaryLabels,
+    identity,
+  ];
 
   local last(metric) = 'last_over_time(%s[$__range])' % metric;
   local average(metric) = 'avg_over_time(%s[$__range])' % metric;
@@ -105,7 +116,7 @@ function(config)
     warning(last(cpuRequest) + ' == 0', 'CPU request is zero; ratio omitted'),
     warning(last(memoryRequest) + ' == 0', 'Memory request is zero; ratio omitted'),
     warning('max_over_time(%s[$__range])' % fallbackIdentityMetric, 'Revision falls back to Pod UID'),
-    warning('(count by (%s) (count by (%s) (%s)) > 1) * on (%s) group_right() count by (%s) (%s)' % [revisionContainerLabels, imageLabels, identity, revisionContainerLabels, imageLabels, identity], 'Multiple immutable images in one revision'),
+    warning('(%s) > 1' % summaryImageCount, 'Multiple immutable images in one revision'),
     warning('clamp_max(count_over_time(%s[$__range]) / ($__range_s / 60), 1) < 0.8' % cpuUsage, 'CPU sample coverage below 80%'),
   ]);
   local summaryWarningCount = 'count by (%s) (count by (%s, warning) (%s)) or on (%s) (0 * count by (%s) (%s))' % [
@@ -121,8 +132,13 @@ function(config)
     for i in std.range(1, 24)
   };
 
+  local graphSeries(expr) = 'label_replace(label_replace(%s, "pod_execution", "$1", "uid", "(.{1,8}).*"), "image_digest", "$1", "image_id", ".*sha256:([a-zA-Z0-9]{1,8}).*")' % expr;
+  local podLegend = (if config.showMultiCluster then '{{%s}} / ' % clusterLabel else '') + '{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}]';
+  local visibleClusterFields = if config.showMultiCluster then [clusterLabel] else [];
+  local hiddenClusterFields = if config.showMultiCluster then [] else [clusterLabel];
+
   local target(refId, expr, legend='', instant=false, format='time_series') =
-    prometheus.new('${datasource}', expr)
+    prometheus.new('${datasource}', if instant then expr else graphSeries(expr))
     + prometheus.withRefId(refId)
     + prometheus.withLegendFormat(legend)
     + prometheus.withInstant(instant)
@@ -237,45 +253,6 @@ function(config)
     {
       matcher: { id: 'byName', options: 'Pod' },
       properties: [
-        { id: 'custom.width', value: 220 },
-        { id: 'links', value: [podLink] },
-      ],
-    },
-    {
-      matcher: { id: 'byName', options: 'Node' },
-      properties: [
-        { id: 'custom.width', value: 180 },
-        { id: 'links', value: [nodeLink] },
-      ],
-    },
-    {
-      matcher: { id: 'byName', options: 'Workload' },
-      properties: [
-        { id: 'custom.width', value: 200 },
-        { id: 'links', value: [workloadLink] },
-      ],
-    },
-    {
-      matcher: { id: 'byName', options: 'Container' },
-      properties: [{ id: 'custom.width', value: 150 }],
-    },
-    {
-      matcher: { id: 'byName', options: 'Revision' },
-      properties: [{ id: 'custom.width', value: 220 }],
-    },
-    {
-      matcher: { id: 'byName', options: 'Warning' },
-      properties: [{ id: 'custom.width', value: 280 }],
-    },
-  ];
-  // The two primary comparison tables carry six evidence columns alongside
-  // replica identity. Keep links intact, but use narrower identity columns so
-  // the complete comparison is readable without horizontal scrolling at a
-  // normal desktop width.
-  local compactIdentityOverrides = [
-    {
-      matcher: { id: 'byName', options: 'Pod' },
-      properties: [
         { id: 'custom.width', value: 160 },
         { id: 'links', value: [podLink] },
       ],
@@ -283,20 +260,20 @@ function(config)
     {
       matcher: { id: 'byName', options: 'Node' },
       properties: [
-        { id: 'custom.width', value: 110 },
+        { id: 'custom.width', value: 100 },
         { id: 'links', value: [nodeLink] },
       ],
     },
     {
       matcher: { id: 'byName', options: 'Workload' },
       properties: [
-        { id: 'custom.width', value: 170 },
+        { id: 'custom.width', value: 120 },
         { id: 'links', value: [workloadLink] },
       ],
     },
     {
       matcher: { id: 'byName', options: 'Container' },
-      properties: [{ id: 'custom.width', value: 75 }],
+      properties: [{ id: 'custom.width', value: 85 }],
     },
     {
       matcher: { id: 'byName', options: 'Revision' },
@@ -304,16 +281,69 @@ function(config)
     },
     {
       matcher: { id: 'byName', options: 'Warning' },
+      properties: [{ id: 'custom.width', value: 280 }],
+    },
+  ];
+  // Shorter identity columns leave more room for per-Pod evidence.
+  local compactIdentityOverrides = [
+    {
+      matcher: { id: 'byName', options: 'Pod' },
+      properties: [
+        { id: 'custom.width', value: 145 },
+        { id: 'links', value: [podLink] },
+      ],
+    },
+    {
+      matcher: { id: 'byName', options: 'Node' },
+      properties: [
+        { id: 'custom.width', value: 90 },
+        { id: 'links', value: [nodeLink] },
+      ],
+    },
+    {
+      matcher: { id: 'byName', options: 'Workload' },
+      properties: [
+        { id: 'custom.width', value: 110 },
+        { id: 'links', value: [workloadLink] },
+      ],
+    },
+    {
+      matcher: { id: 'byName', options: 'Container' },
+      properties: [{ id: 'custom.width', value: 90 }],
+    },
+    {
+      matcher: { id: 'byName', options: 'Revision' },
+      properties: [{ id: 'custom.width', value: 120 }],
+    },
+    {
+      matcher: { id: 'byName', options: 'Warning' },
       properties: [{ id: 'custom.width', value: 220 }],
+    },
+    {
+      matcher: { id: 'byName', options: 'Image' },
+      properties: [{ id: 'custom.width', value: 170 }],
+    },
+    {
+      matcher: { id: 'byName', options: 'Image ID' },
+      properties: [{ id: 'custom.width', value: 140 }],
+    },
+    {
+      matcher: { id: 'byName', options: 'Workload kind' },
+      properties: [{ id: 'custom.width', value: 90 }],
+    },
+    {
+      matcher: { id: 'byName', options: 'Cluster' },
+      properties: [{ id: 'custom.width', value: 110 }],
     },
   ];
 
-  local table(id, title, description, pos, targets, columns=[], extraExclude=[], extraRename={}, compact=false) =
+  local table(id, title, description, pos, targets, columns=[], extraExclude=[], extraRename={}, compact=false, extraOverrides=[], fieldOrder=[]) =
     local renames = identityRenames + std.foldl(
       function(acc, column) acc { ['Value #' + column.ref]: column.name },
       columns,
       {}
     ) + (if std.length(columns) == 1 then { Value: columns[0].name } else {}) + extraRename;
+    local orderedFields = fieldOrder + ['Value #' + column.ref for column in columns];
     local overrides = (if compact then compactIdentityOverrides else identityOverrides) + [
       {
         matcher: { id: 'byName', options: column.name },
@@ -333,13 +363,16 @@ function(config)
         id: 'organize',
         options: {
           excludeByName: timeFields + { [name]: true for name in extraExclude },
-          indexByName: {},
+          indexByName: if std.length(fieldOrder) == 0 then {} else {
+            [orderedFields[i]]: i
+            for i in std.range(0, std.length(orderedFields) - 1)
+          },
           renameByName: renames,
         },
       },
     ])
     + g.panel.table.standardOptions.withUnit('short')
-    + g.panel.table.standardOptions.withOverrides(overrides)
+    + g.panel.table.standardOptions.withOverrides(overrides + extraOverrides)
     + g.panel.table.fieldConfig.defaults.custom.withAlign('auto')
     + g.panel.table.fieldConfig.defaults.custom.withCellOptions({ type: 'auto' })
     + g.panel.table.fieldConfig.defaults.custom.withInspect(false)
@@ -431,10 +464,9 @@ function(config)
     + (if config.showMultiCluster then [
          queryVariable('cluster', 'Cluster', 'label_values(resource_review:workload_revision_pod_container_info, %s)' % clusterLabel),
        ] else [
-         variable.constant.new('cluster', config.singleClusterName)
-         + variable.constant.generalOptions.withLabel('Cluster')
-         + variable.constant.generalOptions.withCurrent(config.singleClusterName)
-         + variable.constant.generalOptions.showOnDashboard.withLabelAndValue(),
+         variable.custom.new('cluster', [config.singleClusterName])
+         + variable.custom.generalOptions.withLabel('Cluster')
+         + variable.custom.generalOptions.showOnDashboard.withLabelAndValue(),
        ])
     + [
       queryVariable('namespace', 'Namespace', 'label_values(resource_review:workload_revision_pod_container_info{%s}, namespace)' % (if config.showMultiCluster then '%s=~"$cluster"' % clusterLabel else ''), false),
@@ -466,7 +498,7 @@ function(config)
       target('A', 'min(%s)' % cpuCoverage, 'Coverage', true),
     ], 'percentunit'),
 
-    table(9, 'Current workload revisions and configuration', 'One row per currently reported workload revision, container, and immutable image. It keeps workload kind and name, replica count, observed revision age, current requests and limits, and the shortest available CPU observation history together.', grid(0, 6, 24, 8), [
+    table(9, 'Current workload revisions and configuration', 'One row per currently reported workload revision, container, and immutable image. The filters identify the workload. Each row shows replica count, revision age, requests, limits, and the shortest available CPU history.', grid(0, 6, 24, 8), [
       target('A', currentReplicaCount, 'Replica count', true, 'table'),
       target('B', currentRevisionAge, 'Revision age', true, 'table'),
       target('C', currentCpuRequest, 'CPU request', true, 'table'),
@@ -475,14 +507,14 @@ function(config)
       target('F', currentMemoryLimit, 'Memory limit', true, 'table'),
       target('G', currentObservationHistory, 'Available observation history', true, 'table'),
     ], [
-      { ref: 'A', name: 'Replica count', unit: 'short', width: 100 },
-      { ref: 'B', name: 'Revision age', unit: 's', width: 130 },
-      { ref: 'C', name: 'CPU request', unit: 'short', width: 95 },
+      { ref: 'A', name: 'Replicas', unit: 'short', width: 85 },
+      { ref: 'B', name: 'Revision age', unit: 's', width: 105 },
+      { ref: 'C', name: 'CPU request', unit: 'short', width: 105 },
       { ref: 'D', name: 'CPU limit', unit: 'short', width: 90 },
-      { ref: 'E', name: 'Memory request', unit: 'bytes', width: 110 },
-      { ref: 'F', name: 'Memory limit', unit: 'bytes', width: 105 },
-      { ref: 'G', name: 'Available observation history', unit: 's', width: 170 },
-    ], extraExclude=['revision_source'], compact=true),
+      { ref: 'E', name: 'Memory request', unit: 'bytes', width: 130 },
+      { ref: 'F', name: 'Memory limit', unit: 'bytes', width: 110 },
+      { ref: 'G', name: 'CPU history', unit: 's', width: 105 },
+    ], extraExclude=['namespace', 'workload_type', 'workload', 'revision_source'] + hiddenClusterFields, compact=true, fieldOrder=visibleClusterFields + ['revision', 'container', 'image_id']),
 
     row(40, 'Replica Comparison', 16),
     table(41, 'CPU usage, throttling, and pressure by Pod and node', 'Each row keeps one Pod and node visible. Average, p95, maximum, throttling, pressure, history, and coverage are calculated for that Pod UID before any workload-level summary.', grid(0, 17, 24, 8), [
@@ -495,15 +527,15 @@ function(config)
       target('G', cpuHistory, 'History', true, 'table'),
       target('H', cpuCoverage, 'Coverage', true, 'table'),
     ], [
-      { ref: 'A', name: 'Average CPU', unit: 'short', width: 100 },
-      { ref: 'B', name: 'p95 CPU', unit: 'short', width: 80 },
-      { ref: 'C', name: 'Maximum CPU', unit: 'short', width: 105 },
-      { ref: 'D', name: 'Maximum throttled-period percentage', unit: 'percentunit', width: 170 },
-      { ref: 'E', name: 'Maximum throttled-time rate', unit: 'short', width: 155 },
-      { ref: 'F', name: 'Maximum CPU pressure', unit: 'percentunit', width: 135 },
-      { ref: 'G', name: 'History', unit: 's', width: 90 },
-      { ref: 'H', name: 'Coverage', unit: 'percentunit', width: 90 },
-    ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id'], compact=true),
+      { ref: 'A', name: 'Average CPU', unit: 'short', width: 110 },
+      { ref: 'B', name: 'CPU p95', unit: 'short', width: 80 },
+      { ref: 'C', name: 'CPU max', unit: 'short', width: 80 },
+      { ref: 'D', name: 'Throttled periods', unit: 'percentunit', width: 135 },
+      { ref: 'E', name: 'Throttled time', unit: 'short', width: 110 },
+      { ref: 'F', name: 'CPU pressure', unit: 'percentunit', width: 115 },
+      { ref: 'G', name: 'History', unit: 's', width: 80 },
+      { ref: 'H', name: 'Coverage', unit: 'percentunit', width: 80 },
+    ], extraExclude=['namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id'] + hiddenClusterFields, compact=true, fieldOrder=visibleClusterFields + ['revision', 'pod', 'container', 'node']),
     table(42, 'Memory, OOM events, and restarts by Pod and node', 'Each row keeps one Pod and node visible. Working set, total memory, pressure, OOM events, OOMKilled state, and restarts stay separate so one replica cannot disappear inside a workload average.', grid(0, 25, 24, 8), [
       target('A', average(memoryWss), 'Average working set', true, 'table'),
       target('B', maximum(memoryWss), 'Maximum working set', true, 'table'),
@@ -514,16 +546,17 @@ function(config)
       target('G', oomKilled, 'OOMKilled', true, 'table'),
     ], [
       { ref: 'A', name: 'Average working set', unit: 'bytes', width: 125 },
-      { ref: 'B', name: 'Maximum working set', unit: 'bytes', width: 130 },
-      { ref: 'C', name: 'Maximum total memory', unit: 'bytes', width: 130 },
-      { ref: 'D', name: 'Maximum memory pressure', unit: 'percentunit', width: 150 },
-      { ref: 'E', name: 'OOM events', unit: 'short', width: 85 },
-      { ref: 'F', name: 'Restarts', unit: 'short', width: 75 },
-      { ref: 'G', name: 'OOMKilled', unit: 'bool', width: 90 },
-    ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id'], compact=true),
+      { ref: 'B', name: 'Max working set', unit: 'bytes', width: 115 },
+      { ref: 'C', name: 'Max total memory', unit: 'bytes', width: 120 },
+      { ref: 'D', name: 'Memory pressure', unit: 'percentunit', width: 115 },
+      { ref: 'E', name: 'OOM events', unit: 'short', width: 80 },
+      { ref: 'F', name: 'Restarts', unit: 'short', width: 70 },
+      { ref: 'G', name: 'OOMKilled', unit: 'bool', width: 85 },
+    ], extraExclude=['namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id'] + hiddenClusterFields, compact=true, fieldOrder=visibleClusterFields + ['revision', 'pod', 'container', 'node']),
 
     row(50, 'Review Table', 33, true, [
-      table(51, 'Workload revision and container review', 'One row for each workload revision and container. The row shows current requests and limits; CPU p95 and maximum; memory maximum; absolute and percentage differences from requests; replica count; observation duration; OOM, restart, throttling, and pressure signals; and missing evidence warnings.', grid(0, 34, 24, 13), [
+      table(51, 'Workload revision and container review', 'One row per workload revision and container. Image population identifies revisions with multiple known immutable images. Values in a Mixed images row can come from different images. The row includes requests, usage, resource differences, replica count, history, runtime signals, and warnings.', grid(0, 34, 24, 13), [
+        target('AB', summaryImageCount, 'Image population', true, 'table'),
         target('A', summaryCpuRequest, 'Current CPU request', true, 'table'),
         target('B', summaryCpuLimit, 'Current CPU limit', true, 'table'),
         target('D', summaryCpuP95, 'CPU p95', true, 'table'),
@@ -546,33 +579,51 @@ function(config)
         target('Z', summaryOomKilled, 'OOMKilled', true, 'table'),
         target('AA', summaryWarningCount, 'Missing evidence warnings', true, 'table'),
       ], [
-        { ref: 'A', name: 'Current CPU request', unit: 'short' },
-        { ref: 'B', name: 'Current CPU limit', unit: 'short' },
-        { ref: 'D', name: 'CPU p95', unit: 'short' },
-        { ref: 'E', name: 'CPU maximum', unit: 'short' },
-        { ref: 'F', name: 'Current memory request', unit: 'bytes' },
-        { ref: 'G', name: 'Current memory limit', unit: 'bytes' },
-        { ref: 'I', name: 'Memory maximum', unit: 'bytes' },
-        { ref: 'R', name: 'CPU absolute difference from request', unit: 'short' },
-        { ref: 'S', name: 'CPU percentage difference from request', unit: 'percentunit' },
-        { ref: 'T', name: 'Memory absolute difference from request', unit: 'bytes' },
-        { ref: 'U', name: 'Memory percentage difference from request', unit: 'percentunit' },
-        { ref: 'V', name: 'Replica count', unit: 'short' },
-        { ref: 'K', name: 'Observation duration', unit: 's' },
-        { ref: 'M', name: 'OOM events', unit: 'short' },
-        { ref: 'N', name: 'Restarts', unit: 'short' },
-        { ref: 'O', name: 'Throttled-period percentage', unit: 'percentunit' },
-        { ref: 'W', name: 'Throttled-time rate', unit: 'short' },
-        { ref: 'X', name: 'CPU pressure', unit: 'percentunit' },
-        { ref: 'Y', name: 'Memory pressure', unit: 'percentunit' },
-        { ref: 'Z', name: 'OOMKilled', unit: 'bool' },
-        { ref: 'AA', name: 'Missing evidence warnings', unit: 'short' },
+        { ref: 'AB', name: 'Image population', unit: 'short', width: 140 },
+        { ref: 'AA', name: 'Warnings', unit: 'short', width: 85 },
+        { ref: 'V', name: 'Replicas', unit: 'short', width: 85 },
+        { ref: 'K', name: 'CPU history', unit: 's', width: 100 },
+        { ref: 'A', name: 'CPU request', unit: 'short', width: 105 },
+        { ref: 'D', name: 'CPU p95', unit: 'short', width: 80 },
+        { ref: 'E', name: 'CPU max', unit: 'short', width: 80 },
+        { ref: 'R', name: 'CPU difference', unit: 'short', width: 120 },
+        { ref: 'S', name: 'CPU difference %', unit: 'percentunit', width: 135 },
+        { ref: 'B', name: 'CPU limit', unit: 'short', width: 90 },
+        { ref: 'F', name: 'Memory request', unit: 'bytes', width: 120 },
+        { ref: 'I', name: 'Memory max', unit: 'bytes', width: 105 },
+        { ref: 'T', name: 'Memory difference', unit: 'bytes', width: 135 },
+        { ref: 'U', name: 'Memory difference %', unit: 'percentunit', width: 155 },
+        { ref: 'G', name: 'Memory limit', unit: 'bytes', width: 110 },
+        { ref: 'M', name: 'OOM events', unit: 'short', width: 80 },
+        { ref: 'N', name: 'Restarts', unit: 'short', width: 70 },
+        { ref: 'Z', name: 'OOMKilled', unit: 'bool', width: 85 },
+        { ref: 'O', name: 'Throttled periods', unit: 'percentunit', width: 120 },
+        { ref: 'W', name: 'Throttled time', unit: 'short', width: 110 },
+        { ref: 'X', name: 'CPU pressure', unit: 'percentunit', width: 100 },
+        { ref: 'Y', name: 'Memory pressure', unit: 'percentunit', width: 115 },
+      ], extraExclude=['namespace', 'workload_type', 'workload', 'revision_source'] + hiddenClusterFields, compact=true, fieldOrder=visibleClusterFields + ['revision', 'container'], extraOverrides=[
+        {
+          matcher: { id: 'byName', options: 'Image population' },
+          properties: [
+            {
+              id: 'mappings',
+              value: [
+                { type: 'value', options: {
+                  '0': { text: 'Unknown images', color: 'orange' },
+                  '1': { text: '1 known image', color: 'blue' },
+                } },
+                { type: 'range', options: { from: 2, to: 1e9, result: { text: 'Mixed images', color: 'orange' } } },
+              ],
+            },
+            { id: 'custom.cellOptions', value: { type: 'color-text' } },
+          ],
+        },
       ]),
     ]),
 
     row(20, 'CPU Evidence', 14, true, [
       timeSeries(21, 'CPU usage over time', 'CPU usage is a five-minute rate in cores. Each line keeps the Pod UID and revision identity.', grid(0, 15, 24, 9), [
-        target('A', cpuUsage, '{{pod}} / {{container}} usage'),
+        target('A', cpuUsage, podLegend + ' usage'),
       ]),
       table(22, 'p95 and maximum CPU usage', 'p95 and maximum are calculated independently for each Pod UID over the selected time window.', grid(0, 24, 24, 8), [
         target('A', p95(cpuUsage), 'CPU p95', true, 'table'),
@@ -582,8 +633,8 @@ function(config)
         { ref: 'B', name: 'CPU maximum', unit: 'short' },
       ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
       timeSeries(26, 'CPU request and limit', 'Request and limit lines retain Pod UID and revision identity. Request is dashed orange; limit is dashed red.', grid(0, 32, 24, 8), [
-        target('A', cpuRequest, '{{pod}} / {{container}} request'),
-        target('B', cpuLimit, '{{pod}} / {{container}} limit'),
+        target('A', cpuRequest, podLegend + ' request'),
+        target('B', cpuLimit, podLegend + ' limit'),
       ], overrides=[dashedOverride('A', 'orange'), dashedOverride('B', 'red')]),
       table(27, 'Difference between the request and p95 usage', 'The table subtracts the displayed p95 from the configured request for each Pod UID. The ratio is omitted when the request is missing or zero.', grid(0, 40, 24, 8), [
         target('A', '(' + last(cpuRequest) + ' - ' + p95(cpuUsage) + ') and on (' + matchLabels + ') (' + last(cpuRequest) + ' > 0)', 'Request minus p95', true, 'table'),
@@ -593,29 +644,29 @@ function(config)
         { ref: 'B', name: 'Difference ratio', unit: 'percentunit' },
       ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
       timeSeries(23, 'CPU throttled-period percentage', 'Share of CPU quota periods containing throttling. It proves quota enforcement, not application impact. The threshold is a visual highlight, not a verdict.', grid(0, 48, 24, 8), [
-        target('A', cpuThrottled, '{{pod}} / {{container}}'),
+        target('A', cpuThrottled, podLegend),
       ], 'percentunit', thresholds=[
         { color: 'green', value: null },
         { color: 'red', value: config.cpuThrottledWarningRatio },
       ]),
       timeSeries(24, 'CPU throttled time', 'Seconds of throttled task time per wall-clock second. Parallel tasks can make this value exceed one.', grid(0, 56, 24, 8), [
-        target('A', cpuThrottledTime, '{{pod}} / {{container}}'),
+        target('A', cpuThrottledTime, podLegend),
       ], 'short'),
       timeSeries(25, 'CPU pressure when PSI metrics exist', 'Fraction of time with at least one runnable task waiting for CPU. No data means unavailable, not zero; PSI does not identify whether quota or node contention caused the wait.', grid(0, 64, 24, 8), [
-        target('A', cpuPressure, '{{pod}} / {{node}} / {{container}}'),
+        target('A', cpuPressure, podLegend + ' / {{node}}'),
       ], 'percentunit'),
     ]),
 
     row(30, 'Memory Evidence', 15, true, [
       timeSeries(31, 'Total container memory', 'Memory currently charged to the container cgroup. This includes more than application heap and can include file cache and kernel-accounted memory.', grid(0, 16, 24, 9), [
-        target('A', memoryUsage, '{{pod}} / {{container}} total'),
+        target('A', memoryUsage, podLegend + ' total'),
       ], 'bytes'),
       timeSeries(32, 'Working-set memory', 'Total container memory minus inactive file cache. This is not the same as application memory or memory that Linux can never reclaim.', grid(0, 25, 24, 9), [
-        target('B', memoryWss, '{{pod}} / {{container}} working set'),
+        target('B', memoryWss, podLegend + ' working set'),
       ], 'bytes'),
       timeSeries(33, 'RSS and cache', 'RSS primarily reflects resident anonymous memory; cache reflects file content retained for reuse. They do not account for every byte in total container memory.', grid(0, 34, 24, 8), [
-        target('A', memoryRss, '{{pod}} / {{container}} RSS'),
-        target('B', memoryCache, '{{pod}} / {{container}} cache'),
+        target('A', memoryRss, podLegend + ' RSS'),
+        target('B', memoryCache, podLegend + ' cache'),
       ], 'bytes'),
       table(34, 'Maximum values for the selected period', 'The highest sampled total, working-set, RSS, and cache values are calculated separately for each Pod UID over the selected time period.', grid(0, 42, 24, 8), [
         target('A', maximum(memoryUsage), 'Total maximum', true, 'table'),
@@ -629,11 +680,11 @@ function(config)
         { ref: 'D', name: 'Cache maximum', unit: 'bytes' },
       ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
       timeSeries(35, 'Memory request and limit', 'The request is used when Kubernetes schedules the Pod. The limit is the cgroup ceiling. Request is dashed orange; limit is dashed red.', grid(0, 50, 24, 8), [
-        target('A', memoryRequest, '{{pod}} / {{container}} request'),
-        target('B', memoryLimit, '{{pod}} / {{container}} limit'),
+        target('A', memoryRequest, podLegend + ' request'),
+        target('B', memoryLimit, podLegend + ' limit'),
       ], 'bytes', overrides=[dashedOverride('A', 'orange'), dashedOverride('B', 'red')]),
       timeSeries(36, 'Memory pressure when PSI metrics exist', 'Fraction of time tasks could not make progress while Linux tried to reclaim memory. No data means unavailable, not zero.', grid(0, 58, 24, 8), [
-        target('A', memoryPressure, '{{pod}} / {{node}} / {{container}}'),
+        target('A', memoryPressure, podLegend + ' / {{node}}'),
       ], 'percentunit'),
       table(37, 'cAdvisor OOM events', 'New out-of-memory events reported by cAdvisor during the selected time period. Each row keeps the Pod UID and revision that produced the counter.', grid(0, 66, 24, 8), [
         target('A', oomEvents, 'cAdvisor OOM events', true, 'table'),

@@ -4,6 +4,8 @@
 
 `make dev` creates a Deployment called `review-sample` for this walkthrough. Open the [Kubernetes Resource Review dashboard](http://127.0.0.1:3000/d/learnk8s-resource-review/kubernetes-resource-review), select `resource-review-test` as the namespace, `deployment` as the workload kind, and `review-sample` as the workload. Leave revision, Pod, and container set to `All`, then choose `Last 1 hour` in the time picker.
 
+The **Cluster** selector shows the configured single-cluster name. In multi-cluster mode, it selects clusters from the recorded identity labels.
+
 ![Grafana filters set to the local review-sample Deployment](assets/dashboard-filters.png)
 
 ## Workload Context
@@ -94,29 +96,30 @@ sum by (namespace, pod, container) (
 
 Every minute, Prometheus adds the matching Pod name, UID, revision, and node, then saves the result as `resource_review:container_cpu_usage_cores:rate5m`. **Shortest history** and **CPU coverage** count those saved CPU values.
 
+CPU, throttling, and PSI rate rules discard stale raw container series before grouping the rates. This prevents an older container's rate from attaching to a replacement Pod.
+
 These calculations also include every Pod/container identity recorded during the selected window. A known identity without CPU samples contributes zero history and coverage. Its CPU usage remains unavailable.
 
 Chapter 3 describes these two inputs in **Add the State Kubernetes Knows**: cAdvisor supplies the CPU measurement, while kube-state-metrics supplies the Pod UID, node, image, and owner that tell us which container produced it. The **How cAdvisor turns cgroups into container metrics** section follows the CPU measurement from Linux through the kubelet to Prometheus.
 
 ### Current workload revisions and configuration
 
-Now that you have seen where the Pod details and CPU samples come from, you can read them together in the **Workload Context** table. The table has one row for each revision, container, and image that Prometheus can see now. Each row shows:
+Now that you have seen where the Pod details and CPU samples come from, you can read them together in the **Workload Context** table. The table has one row for each revision, container, and image that Prometheus can see now. The filters identify the workload kind and name. Each row shows:
 
-- Workload kind and name.
 - Current revision and image.
-- Replica count.
+- Replicas.
 - Revision age.
 - CPU and memory requests.
 - CPU and memory limits.
-- Available observation history.
+- CPU history.
 
 An older revision may still appear later in the revision summary if it ran during the selected time range, but it does not appear in this table after its Pods are gone.
 
-**Replica count** is the number of different Pod UIDs in that row. Grafana gets this number from Prometheus. The Deployment may show a different number under `DESIRED` or `READY`.
+**Replicas** is the number of different Pod UIDs in that row. Grafana gets this number from Prometheus. The Deployment may show a different number under `DESIRED` or `READY`.
 
 **Revision age** starts when the oldest of those current Pods was created, so it is not the age of the Deployment itself. If Kubernetes has no CPU or memory request or limit for the container, the matching cell stays empty instead of showing zero.
 
-**Available observation history** shows the shortest CPU history among the Pods in the row. For example, if one Pod has an hour of data and another has only twenty minutes, the table shows twenty minutes because that is all the history available for comparing both Pods.
+**CPU history** shows the shortest CPU history among the Pods in the row. For example, if one Pod has an hour of data and another has only twenty minutes, the table shows twenty minutes because that is all the history available for comparing both Pods.
 
 If a known Pod has no CPU samples, the row shows zero available observation history.
 
@@ -472,6 +475,8 @@ Chapter 3 reaches **Compare replicas before aggregating them** after attaching e
 
 Both comparison tables keep the **Pod** and **Node** columns visible. The recording rules also retain the Pod UID, so a new Pod cannot inherit measurements from an older Pod that used the same name. The table hides the technical UID column after using it to keep those rows separate.
 
+Graph legends show short Pod UIDs and image IDs beside the Pod and container names. This separates reused Pod names and image changes. The query results retain the full identity labels.
+
 The first table is **CPU usage, throttling, and pressure by Pod and node**. The second is **Memory, OOM events, and restarts by Pod and node**. Each row belongs to one Pod UID, node, and container from the selected revision.
 
 ![CPU usage, throttling, and pressure compared for each Pod and node](assets/dashboard-replica-cpu-throttling-pressure.png)
@@ -504,11 +509,17 @@ The **Average CPU** and **Average working set** columns in this dashboard are no
 
 ![Review Table showing one row for the selected workload revision and container](assets/dashboard-review-table.gif)
 
-Chapter 3 first keeps workload revisions separate, then compares their Pods before bringing the results into one summary. The **Review Table** follows the same order. It shows one row for each workload revision and container, so values from two releases never become one row. When a mutable image tag produced more than one image ID inside the same revision, the row remains whole and **Missing evidence warnings** reports that difference.
+Chapter 3 first keeps workload revisions separate, then compares their Pods before bringing the results into one summary. The **Review Table** follows the same order. It shows one row for each workload revision and container. Different workload revisions remain separate.
+
+### Image population
+
+**Image population** counts distinct, nonempty immutable image IDs seen during the selected period. It shows **1 known image**, **Mixed images**, or **Unknown images**. Different tags for the same immutable image do not increase this count.
+
+A **Mixed images** row combines evidence from those images. Its request, CPU, and memory maxima can come from different Pods and images. The differences therefore describe the combined population, not one exact image. The current configuration table and Pod-level evidence retain the individual image IDs.
 
 ### Current requests and limits
 
-The **Current CPU request**, **Current CPU limit**, **Current memory request**, and **Current memory limit** columns show the last configured value Prometheus saw during the selected period. This keeps a completed or replaced revision readable after its Pods have gone. An empty cell means the request or limit was not configured; it does not mean zero.
+The **CPU request**, **CPU limit**, **Memory request**, and **Memory limit** columns show the last configured value Prometheus saw during the selected period. This keeps a completed or replaced revision readable after its Pods have gone. An empty cell means the request or limit was not configured; it does not mean zero.
 
 Chapter 3's **Interpret usage against the CPU request and limit** section explains why both CPU values stay beside usage: the request affects placement and CPU weight, while the limit sets the quota that can stop the container. The same row keeps the memory request and hard memory limit beside the memory maximum.
 
@@ -520,7 +531,7 @@ The p95 comes from five-minute CPU rates collected during the selected period. A
 
 ### Memory maximum
 
-**Memory maximum** is the highest total container memory value seen on any Pod in the revision during the selected period. It uses total cgroup memory rather than working set. Chapter 3's **Measure memory from more than one angle** section explains why the two are not interchangeable: total memory includes all memory charged to the cgroup, while working set subtracts inactive file cache.
+**Memory max** is the highest total container memory value seen on any Pod in the revision during the selected period. It uses total cgroup memory rather than working set. Chapter 3's **Measure memory from more than one angle** section explains why the two are not interchangeable: total memory includes all memory charged to the cgroup, while working set subtracts inactive file cache.
 
 Use the Memory Evidence section when you need the working-set, RSS, and cache values behind this summary.
 
@@ -540,13 +551,13 @@ A negative result means usage was above the request. For example, a `0.50`-core 
 
 ### Replica count
 
-**Replica count** counts different Pod UIDs seen during the selected period. It includes Pods that were replaced or ran only briefly, so it may be larger than the Deployment's current desired or ready replica count.
+**Replicas** counts different Pod UIDs seen during the selected period. It includes Pods that were replaced or ran only briefly, so it may be larger than the Deployment's current desired or ready replica count.
 
 This follows **Compare replicas before aggregating them** in Chapter 3: each Pod is measured separately first, and only the highest CPU or memory value is carried into this revision row. Open Replica Comparison to see which Pod and node produced the difference.
 
-### Observation duration
+### CPU history
 
-**Observation duration** shows the shortest CPU history among the Pods in the row. Prometheus counts the one-minute CPU rule samples for each Pod and multiplies the smallest count by 60 seconds. If one Pod has seven days of samples and a new Pod has ten minutes, the row shows ten minutes.
+**CPU history** shows the shortest CPU history among the Pods in the row. Prometheus counts the one-minute CPU rule samples for each Pod and multiplies the smallest count by 60 seconds. If one Pod has seven days of samples and a new Pod has ten minutes, the row shows ten minutes.
 
 Chapter 3's **Make Short Revision History Visible** section explains why this stays next to p95: a p95 calculated from a few minutes cannot describe the same range of workload cycles as one calculated from several days. Missing scrapes also shorten this value.
 
@@ -558,7 +569,7 @@ The row adds the cAdvisor OOM events and Kubernetes container restarts recorded 
 
 ### Missing evidence warnings
 
-`0` and an empty cell mean different things. Zero means Prometheus received the metric and measured zero. An empty cell means no matching sample was available. The **Missing evidence warnings** column counts different warning types for the row, not the number of Pods that raised the same warning.
+`0` and an empty cell mean different things. Zero means Prometheus received the metric and measured zero. An empty cell means no matching sample was available. The **Warnings** column counts different warning types for the row, not the number of Pods that raised the same warning.
 
 The count covers these cases:
 
@@ -619,6 +630,8 @@ image_id        = registry.example/checkout@sha256:8ad1...
 - **`image` and `image_id`** show the configured image and the exact image content used by the container. Two Pods can use the same tag and still have different image IDs.
 
 The restart counter keeps the Pod UID and container but omits `image` and `image_id`. Its cumulative history remains continuous when an image changes within the same Pod.
+
+The dashboard also combines increases from older image-labelled restart series by Pod UID and container. This prevents duplicate rows during an upgrade.
 
 If `revision_source` is `pod_uid`, the mixin could not find a shared controller revision and used the Pod UID instead. Three Pod UIDs then appear as three revision rows, even when they belong to the same workload.
 

@@ -345,10 +345,14 @@ function(config)
             expr: joinCadvisorIdentity(|||
               sum by (%(clusterLabel)s, namespace, pod, container) (
                 rate(container_cpu_cfs_throttled_periods_total{%(cadvisorSelector)s, container!="", container!="POD", image!=""}[5m])
+                and
+                container_cpu_cfs_throttled_periods_total{%(cadvisorSelector)s, container!="", container!="POD", image!=""}
               )
               /
               sum by (%(clusterLabel)s, namespace, pod, container) (
                 rate(container_cpu_cfs_periods_total{%(cadvisorSelector)s, container!="", container!="POD", image!=""}[5m]) > 0
+                and
+                container_cpu_cfs_periods_total{%(cadvisorSelector)s, container!="", container!="POD", image!=""}
               )
             ||| % config),
           },
@@ -357,6 +361,8 @@ function(config)
             expr: joinCadvisorIdentity(|||
               sum by (%(clusterLabel)s, namespace, pod, container) (
                 rate(container_cpu_cfs_throttled_seconds_total{%(cadvisorSelector)s, container!="", container!="POD", image!=""}[5m])
+                and
+                container_cpu_cfs_throttled_seconds_total{%(cadvisorSelector)s, container!="", container!="POD", image!=""}
               )
             ||| % config),
           },
@@ -365,6 +371,8 @@ function(config)
             expr: joinCadvisorIdentity(|||
               sum by (%(clusterLabel)s, namespace, pod, container) (
                 rate(container_pressure_cpu_waiting_seconds_total{%(cadvisorSelector)s, container!="", container!="POD"}[5m])
+                and
+                container_pressure_cpu_waiting_seconds_total{%(cadvisorSelector)s, container!="", container!="POD"}
               )
             ||| % config),
           },
@@ -405,6 +413,8 @@ function(config)
             expr: joinCadvisorIdentity(|||
               sum by (%(clusterLabel)s, namespace, pod, container) (
                 rate(container_pressure_memory_waiting_seconds_total{%(cadvisorSelector)s, container!="", container!="POD"}[5m])
+                and
+                container_pressure_memory_waiting_seconds_total{%(cadvisorSelector)s, container!="", container!="POD"}
               )
             ||| % config),
           },

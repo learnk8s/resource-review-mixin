@@ -487,7 +487,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "One row per currently reported workload revision, container, and immutable image. It keeps workload kind and name, replica count, observed revision age, current requests and limits, and the shortest available CPU observation history together.",
+      "description": "One row per currently reported workload revision, container, and immutable image. The filters identify the workload. Each row shows replica count, revision age, requests, limits, and the shortest available CPU history.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -508,7 +508,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 160
+                "value": 145
               },
               {
                 "id": "links",
@@ -529,7 +529,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 110
+                "value": 90
               },
               {
                 "id": "links",
@@ -550,7 +550,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 170
+                "value": 110
               },
               {
                 "id": "links",
@@ -571,7 +571,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 75
+                "value": 90
               }
             ]
           },
@@ -583,7 +583,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 145
+                "value": 120
               }
             ]
           },
@@ -602,7 +602,55 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Replica count"
+              "options": "Image"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Image ID"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Workload kind"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cluster"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Replicas"
             },
             "properties": [
               {
@@ -611,7 +659,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 100
+                "value": 85
               }
             ]
           },
@@ -627,7 +675,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 130
+                "value": 105
               }
             ]
           },
@@ -643,7 +691,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 95
+                "value": 105
               }
             ]
           },
@@ -675,7 +723,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 110
+                "value": 130
               }
             ]
           },
@@ -691,14 +739,14 @@
               },
               {
                 "id": "custom.width",
-                "value": 105
+                "value": 110
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Available observation history"
+              "options": "CPU history"
             },
             "properties": [
               {
@@ -707,7 +755,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 170
+                "value": 105
               }
             ]
           }
@@ -857,19 +905,32 @@
               "Time 7": true,
               "Time 8": true,
               "Time 9": true,
-              "revision_source": true
+              "cluster": true,
+              "namespace": true,
+              "revision_source": true,
+              "workload": true,
+              "workload_type": true
             },
             "indexByName": {
-
+              "Value #A": 3,
+              "Value #B": 4,
+              "Value #C": 5,
+              "Value #D": 6,
+              "Value #E": 7,
+              "Value #F": 8,
+              "Value #G": 9,
+              "container": 1,
+              "image_id": 2,
+              "revision": 0
             },
             "renameByName": {
-              "Value #A": "Replica count",
+              "Value #A": "Replicas",
               "Value #B": "Revision age",
               "Value #C": "CPU request",
               "Value #D": "CPU limit",
               "Value #E": "Memory request",
               "Value #F": "Memory limit",
-              "Value #G": "Available observation history",
+              "Value #G": "CPU history",
               "cluster": "Cluster",
               "container": "Container",
               "image": "Image",
@@ -953,10 +1014,10 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "expr": "label_replace(label_replace(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}, \"pod_execution\", \"$1\", \"uid\", \"(.{1,8}).*\"), \"image_digest\", \"$1\", \"image_id\", \".*sha256:([a-zA-Z0-9]{1,8}).*\")",
               "format": "time_series",
               "instant": false,
-              "legendFormat": "{{pod}} / {{container}} usage",
+              "legendFormat": "{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}] usage",
               "range": true,
               "refId": "A"
             }
@@ -990,7 +1051,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 220
+                    "value": 160
                   },
                   {
                     "id": "links",
@@ -1011,7 +1072,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 180
+                    "value": 100
                   },
                   {
                     "id": "links",
@@ -1032,7 +1093,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 200
+                    "value": 120
                   },
                   {
                     "id": "links",
@@ -1053,7 +1114,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 150
+                    "value": 85
                   }
                 ]
               },
@@ -1065,7 +1126,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 220
+                    "value": 145
                   }
                 ]
               },
@@ -1344,10 +1405,10 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "expr": "label_replace(label_replace(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}, \"pod_execution\", \"$1\", \"uid\", \"(.{1,8}).*\"), \"image_digest\", \"$1\", \"image_id\", \".*sha256:([a-zA-Z0-9]{1,8}).*\")",
               "format": "time_series",
               "instant": false,
-              "legendFormat": "{{pod}} / {{container}} request",
+              "legendFormat": "{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}] request",
               "range": true,
               "refId": "A"
             },
@@ -1356,10 +1417,10 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "expr": "label_replace(label_replace(resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}, \"pod_execution\", \"$1\", \"uid\", \"(.{1,8}).*\"), \"image_digest\", \"$1\", \"image_id\", \".*sha256:([a-zA-Z0-9]{1,8}).*\")",
               "format": "time_series",
               "instant": false,
-              "legendFormat": "{{pod}} / {{container}} limit",
+              "legendFormat": "{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}] limit",
               "range": true,
               "refId": "B"
             }
@@ -1393,7 +1454,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 220
+                    "value": 160
                   },
                   {
                     "id": "links",
@@ -1414,7 +1475,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 180
+                    "value": 100
                   },
                   {
                     "id": "links",
@@ -1435,7 +1496,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 200
+                    "value": 120
                   },
                   {
                     "id": "links",
@@ -1456,7 +1517,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 150
+                    "value": 85
                   }
                 ]
               },
@@ -1468,7 +1529,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 220
+                    "value": 145
                   }
                 ]
               },
@@ -1704,10 +1765,10 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "resource_review:container_cpu_throttled_periods:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "expr": "label_replace(label_replace(resource_review:container_cpu_throttled_periods:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}, \"pod_execution\", \"$1\", \"uid\", \"(.{1,8}).*\"), \"image_digest\", \"$1\", \"image_id\", \".*sha256:([a-zA-Z0-9]{1,8}).*\")",
               "format": "time_series",
               "instant": false,
-              "legendFormat": "{{pod}} / {{container}}",
+              "legendFormat": "{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}]",
               "range": true,
               "refId": "A"
             }
@@ -1767,10 +1828,10 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "resource_review:container_cpu_throttled_seconds:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "expr": "label_replace(label_replace(resource_review:container_cpu_throttled_seconds:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}, \"pod_execution\", \"$1\", \"uid\", \"(.{1,8}).*\"), \"image_digest\", \"$1\", \"image_id\", \".*sha256:([a-zA-Z0-9]{1,8}).*\")",
               "format": "time_series",
               "instant": false,
-              "legendFormat": "{{pod}} / {{container}}",
+              "legendFormat": "{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}]",
               "range": true,
               "refId": "A"
             }
@@ -1830,10 +1891,10 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "resource_review:container_cpu_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "expr": "label_replace(label_replace(resource_review:container_cpu_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}, \"pod_execution\", \"$1\", \"uid\", \"(.{1,8}).*\"), \"image_digest\", \"$1\", \"image_id\", \".*sha256:([a-zA-Z0-9]{1,8}).*\")",
               "format": "time_series",
               "instant": false,
-              "legendFormat": "{{pod}} / {{node}} / {{container}}",
+              "legendFormat": "{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}] / {{node}}",
               "range": true,
               "refId": "A"
             }
@@ -1907,10 +1968,10 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "resource_review:container_memory_usage_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "expr": "label_replace(label_replace(resource_review:container_memory_usage_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}, \"pod_execution\", \"$1\", \"uid\", \"(.{1,8}).*\"), \"image_digest\", \"$1\", \"image_id\", \".*sha256:([a-zA-Z0-9]{1,8}).*\")",
               "format": "time_series",
               "instant": false,
-              "legendFormat": "{{pod}} / {{container}} total",
+              "legendFormat": "{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}] total",
               "range": true,
               "refId": "A"
             }
@@ -1970,10 +2031,10 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "resource_review:container_memory_working_set_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "expr": "label_replace(label_replace(resource_review:container_memory_working_set_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}, \"pod_execution\", \"$1\", \"uid\", \"(.{1,8}).*\"), \"image_digest\", \"$1\", \"image_id\", \".*sha256:([a-zA-Z0-9]{1,8}).*\")",
               "format": "time_series",
               "instant": false,
-              "legendFormat": "{{pod}} / {{container}} working set",
+              "legendFormat": "{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}] working set",
               "range": true,
               "refId": "B"
             }
@@ -2033,10 +2094,10 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "resource_review:container_memory_rss_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "expr": "label_replace(label_replace(resource_review:container_memory_rss_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}, \"pod_execution\", \"$1\", \"uid\", \"(.{1,8}).*\"), \"image_digest\", \"$1\", \"image_id\", \".*sha256:([a-zA-Z0-9]{1,8}).*\")",
               "format": "time_series",
               "instant": false,
-              "legendFormat": "{{pod}} / {{container}} RSS",
+              "legendFormat": "{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}] RSS",
               "range": true,
               "refId": "A"
             },
@@ -2045,10 +2106,10 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "resource_review:container_memory_cache_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "expr": "label_replace(label_replace(resource_review:container_memory_cache_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}, \"pod_execution\", \"$1\", \"uid\", \"(.{1,8}).*\"), \"image_digest\", \"$1\", \"image_id\", \".*sha256:([a-zA-Z0-9]{1,8}).*\")",
               "format": "time_series",
               "instant": false,
-              "legendFormat": "{{pod}} / {{container}} cache",
+              "legendFormat": "{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}] cache",
               "range": true,
               "refId": "B"
             }
@@ -2082,7 +2143,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 220
+                    "value": 160
                   },
                   {
                     "id": "links",
@@ -2103,7 +2164,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 180
+                    "value": 100
                   },
                   {
                     "id": "links",
@@ -2124,7 +2185,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 200
+                    "value": 120
                   },
                   {
                     "id": "links",
@@ -2145,7 +2206,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 150
+                    "value": 85
                   }
                 ]
               },
@@ -2157,7 +2218,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 220
+                    "value": 145
                   }
                 ]
               },
@@ -2486,10 +2547,10 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "expr": "label_replace(label_replace(resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}, \"pod_execution\", \"$1\", \"uid\", \"(.{1,8}).*\"), \"image_digest\", \"$1\", \"image_id\", \".*sha256:([a-zA-Z0-9]{1,8}).*\")",
               "format": "time_series",
               "instant": false,
-              "legendFormat": "{{pod}} / {{container}} request",
+              "legendFormat": "{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}] request",
               "range": true,
               "refId": "A"
             },
@@ -2498,10 +2559,10 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "expr": "label_replace(label_replace(resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}, \"pod_execution\", \"$1\", \"uid\", \"(.{1,8}).*\"), \"image_digest\", \"$1\", \"image_id\", \".*sha256:([a-zA-Z0-9]{1,8}).*\")",
               "format": "time_series",
               "instant": false,
-              "legendFormat": "{{pod}} / {{container}} limit",
+              "legendFormat": "{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}] limit",
               "range": true,
               "refId": "B"
             }
@@ -2561,10 +2622,10 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "resource_review:container_memory_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}",
+              "expr": "label_replace(label_replace(resource_review:container_memory_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}, \"pod_execution\", \"$1\", \"uid\", \"(.{1,8}).*\"), \"image_digest\", \"$1\", \"image_id\", \".*sha256:([a-zA-Z0-9]{1,8}).*\")",
               "format": "time_series",
               "instant": false,
-              "legendFormat": "{{pod}} / {{node}} / {{container}}",
+              "legendFormat": "{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}] / {{node}}",
               "range": true,
               "refId": "A"
             }
@@ -2598,7 +2659,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 220
+                    "value": 160
                   },
                   {
                     "id": "links",
@@ -2619,7 +2680,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 180
+                    "value": 100
                   },
                   {
                     "id": "links",
@@ -2640,7 +2701,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 200
+                    "value": 120
                   },
                   {
                     "id": "links",
@@ -2661,7 +2722,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 150
+                    "value": 85
                   }
                 ]
               },
@@ -2673,7 +2734,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 220
+                    "value": 145
                   }
                 ]
               },
@@ -2837,7 +2898,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 220
+                    "value": 160
                   },
                   {
                     "id": "links",
@@ -2858,7 +2919,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 180
+                    "value": 100
                   },
                   {
                     "id": "links",
@@ -2879,7 +2940,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 200
+                    "value": 120
                   },
                   {
                     "id": "links",
@@ -2900,7 +2961,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 150
+                    "value": 85
                   }
                 ]
               },
@@ -2912,7 +2973,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 220
+                    "value": 145
                   }
                 ]
               },
@@ -3076,7 +3137,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 220
+                    "value": 160
                   },
                   {
                     "id": "links",
@@ -3097,7 +3158,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 180
+                    "value": 100
                   },
                   {
                     "id": "links",
@@ -3118,7 +3179,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 200
+                    "value": 120
                   },
                   {
                     "id": "links",
@@ -3139,7 +3200,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 150
+                    "value": 85
                   }
                 ]
               },
@@ -3151,7 +3212,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 220
+                    "value": 145
                   }
                 ]
               },
@@ -3208,7 +3269,7 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "increase(resource_review:container_restarts_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
+              "expr": "sum without (image, image_id) (increase(resource_review:container_restarts_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))",
               "format": "table",
               "instant": true,
               "legendFormat": "Restarts",
@@ -3334,7 +3395,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 160
+                "value": 145
               },
               {
                 "id": "links",
@@ -3355,7 +3416,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 110
+                "value": 90
               },
               {
                 "id": "links",
@@ -3376,7 +3437,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 170
+                "value": 110
               },
               {
                 "id": "links",
@@ -3397,7 +3458,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 75
+                "value": 90
               }
             ]
           },
@@ -3409,7 +3470,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 145
+                "value": 120
               }
             ]
           },
@@ -3428,6 +3489,54 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "Image"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Image ID"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Workload kind"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cluster"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "Average CPU"
             },
             "properties": [
@@ -3437,14 +3546,14 @@
               },
               {
                 "id": "custom.width",
-                "value": 100
+                "value": 110
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "p95 CPU"
+              "options": "CPU p95"
             },
             "properties": [
               {
@@ -3460,7 +3569,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Maximum CPU"
+              "options": "CPU max"
             },
             "properties": [
               {
@@ -3469,46 +3578,14 @@
               },
               {
                 "id": "custom.width",
-                "value": 105
+                "value": 80
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Maximum throttled-period percentage"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "percentunit"
-              },
-              {
-                "id": "custom.width",
-                "value": 170
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Maximum throttled-time rate"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "short"
-              },
-              {
-                "id": "custom.width",
-                "value": 155
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Maximum CPU pressure"
+              "options": "Throttled periods"
             },
             "properties": [
               {
@@ -3524,6 +3601,38 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "Throttled time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU pressure"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "custom.width",
+                "value": 115
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "History"
             },
             "properties": [
@@ -3533,7 +3642,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 90
+                "value": 80
               }
             ]
           },
@@ -3549,7 +3658,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 90
+                "value": 80
               }
             ]
           }
@@ -3721,15 +3830,26 @@
               "workload_type": true
             },
             "indexByName": {
-
+              "Value #A": 4,
+              "Value #B": 5,
+              "Value #C": 6,
+              "Value #D": 7,
+              "Value #E": 8,
+              "Value #F": 9,
+              "Value #G": 10,
+              "Value #H": 11,
+              "container": 2,
+              "node": 3,
+              "pod": 1,
+              "revision": 0
             },
             "renameByName": {
               "Value #A": "Average CPU",
-              "Value #B": "p95 CPU",
-              "Value #C": "Maximum CPU",
-              "Value #D": "Maximum throttled-period percentage",
-              "Value #E": "Maximum throttled-time rate",
-              "Value #F": "Maximum CPU pressure",
+              "Value #B": "CPU p95",
+              "Value #C": "CPU max",
+              "Value #D": "Throttled periods",
+              "Value #E": "Throttled time",
+              "Value #F": "CPU pressure",
               "Value #G": "History",
               "Value #H": "Coverage",
               "cluster": "Cluster",
@@ -3779,7 +3899,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 160
+                "value": 145
               },
               {
                 "id": "links",
@@ -3800,7 +3920,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 110
+                "value": 90
               },
               {
                 "id": "links",
@@ -3821,7 +3941,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 170
+                "value": 110
               },
               {
                 "id": "links",
@@ -3842,7 +3962,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 75
+                "value": 90
               }
             ]
           },
@@ -3854,7 +3974,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 145
+                "value": 120
               }
             ]
           },
@@ -3867,6 +3987,54 @@
               {
                 "id": "custom.width",
                 "value": 220
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Image"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Image ID"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Workload kind"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cluster"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
               }
             ]
           },
@@ -3889,7 +4057,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Maximum working set"
+              "options": "Max working set"
             },
             "properties": [
               {
@@ -3898,14 +4066,14 @@
               },
               {
                 "id": "custom.width",
-                "value": 130
+                "value": 115
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Maximum total memory"
+              "options": "Max total memory"
             },
             "properties": [
               {
@@ -3914,14 +4082,14 @@
               },
               {
                 "id": "custom.width",
-                "value": 130
+                "value": 120
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Maximum memory pressure"
+              "options": "Memory pressure"
             },
             "properties": [
               {
@@ -3930,7 +4098,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 150
+                "value": 115
               }
             ]
           },
@@ -3946,7 +4114,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 85
+                "value": 80
               }
             ]
           },
@@ -3962,7 +4130,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 75
+                "value": 70
               }
             ]
           },
@@ -3978,7 +4146,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 90
+                "value": 85
               }
             ]
           }
@@ -4071,7 +4239,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "increase(resource_review:container_restarts_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])",
+          "expr": "sum without (image, image_id) (increase(resource_review:container_restarts_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))",
           "format": "table",
           "instant": true,
           "legendFormat": "Restarts",
@@ -4138,13 +4306,23 @@
               "workload_type": true
             },
             "indexByName": {
-
+              "Value #A": 4,
+              "Value #B": 5,
+              "Value #C": 6,
+              "Value #D": 7,
+              "Value #E": 8,
+              "Value #F": 9,
+              "Value #G": 10,
+              "container": 2,
+              "node": 3,
+              "pod": 1,
+              "revision": 0
             },
             "renameByName": {
               "Value #A": "Average working set",
-              "Value #B": "Maximum working set",
-              "Value #C": "Maximum total memory",
-              "Value #D": "Maximum memory pressure",
+              "Value #B": "Max working set",
+              "Value #C": "Max total memory",
+              "Value #D": "Memory pressure",
               "Value #E": "OOM events",
               "Value #F": "Restarts",
               "Value #G": "OOMKilled",
@@ -4184,7 +4362,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "One row for each workload revision and container. The row shows current requests and limits; CPU p95 and maximum; memory maximum; absolute and percentage differences from requests; replica count; observation duration; OOM, restart, throttling, and pressure signals; and missing evidence warnings.",
+          "description": "One row per workload revision and container. Image population identifies revisions with multiple known immutable images. Values in a Mixed images row can come from different images. The row includes requests, usage, resource differences, replica count, history, runtime signals, and warnings.",
           "fieldConfig": {
             "defaults": {
               "custom": {
@@ -4205,7 +4383,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 220
+                    "value": 145
                   },
                   {
                     "id": "links",
@@ -4226,7 +4404,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 180
+                    "value": 90
                   },
                   {
                     "id": "links",
@@ -4247,7 +4425,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 200
+                    "value": 110
                   },
                   {
                     "id": "links",
@@ -4268,7 +4446,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 150
+                    "value": 90
                   }
                 ]
               },
@@ -4280,7 +4458,7 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 220
+                    "value": 120
                   }
                 ]
               },
@@ -4292,31 +4470,135 @@
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 280
+                    "value": 220
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Current CPU request"
+                  "options": "Image"
                 },
                 "properties": [
                   {
-                    "id": "unit",
-                    "value": "short"
+                    "id": "custom.width",
+                    "value": 170
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Current CPU limit"
+                  "options": "Image ID"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 140
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Workload kind"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 90
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Cluster"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 110
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Image population"
                 },
                 "properties": [
                   {
                     "id": "unit",
                     "value": "short"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 140
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Warnings"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 85
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Replicas"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 85
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "CPU history"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "s"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 100
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "CPU request"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 105
                   }
                 ]
               },
@@ -4329,126 +4611,154 @@
                   {
                     "id": "unit",
                     "value": "short"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 80
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "CPU maximum"
+                  "options": "CPU max"
                 },
                 "properties": [
                   {
                     "id": "unit",
                     "value": "short"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Current memory request"
-                },
-                "properties": [
+                  },
                   {
-                    "id": "unit",
-                    "value": "bytes"
+                    "id": "custom.width",
+                    "value": 80
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Current memory limit"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "bytes"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Memory maximum"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "bytes"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "CPU absolute difference from request"
+                  "options": "CPU difference"
                 },
                 "properties": [
                   {
                     "id": "unit",
                     "value": "short"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 120
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "CPU percentage difference from request"
+                  "options": "CPU difference %"
                 },
                 "properties": [
                   {
                     "id": "unit",
                     "value": "percentunit"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Memory absolute difference from request"
-                },
-                "properties": [
+                  },
                   {
-                    "id": "unit",
-                    "value": "bytes"
+                    "id": "custom.width",
+                    "value": 135
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Memory percentage difference from request"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "percentunit"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Replica count"
+                  "options": "CPU limit"
                 },
                 "properties": [
                   {
                     "id": "unit",
                     "value": "short"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 90
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Observation duration"
+                  "options": "Memory request"
                 },
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "s"
+                    "value": "bytes"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 120
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Memory max"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 105
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Memory difference"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 135
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Memory difference %"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percentunit"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 155
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Memory limit"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 110
                   }
                 ]
               },
@@ -4461,6 +4771,10 @@
                   {
                     "id": "unit",
                     "value": "short"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 80
                   }
                 ]
               },
@@ -4473,54 +4787,10 @@
                   {
                     "id": "unit",
                     "value": "short"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Throttled-period percentage"
-                },
-                "properties": [
+                  },
                   {
-                    "id": "unit",
-                    "value": "percentunit"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Throttled-time rate"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "short"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "CPU pressure"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "percentunit"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Memory pressure"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "percentunit"
+                    "id": "custom.width",
+                    "value": 70
                   }
                 ]
               },
@@ -4533,18 +4803,117 @@
                   {
                     "id": "unit",
                     "value": "bool"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 85
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Missing evidence warnings"
+                  "options": "Throttled periods"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percentunit"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 120
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Throttled time"
                 },
                 "properties": [
                   {
                     "id": "unit",
                     "value": "short"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 110
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "CPU pressure"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percentunit"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 100
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Memory pressure"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percentunit"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 115
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Image population"
+                },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "options": {
+                          "0": {
+                            "color": "orange",
+                            "text": "Unknown images"
+                          },
+                          "1": {
+                            "color": "blue",
+                            "text": "1 known image"
+                          }
+                        },
+                        "type": "value"
+                      },
+                      {
+                        "options": {
+                          "from": 2,
+                          "result": {
+                            "color": "orange",
+                            "text": "Mixed images"
+                          },
+                          "to": 1000000000
+                        },
+                        "type": "range"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
                   }
                 ]
               }
@@ -4572,6 +4941,18 @@
           },
           "pluginVersion": "v13.0.0",
           "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "count by (cluster, namespace, workload_type, workload, revision, revision_source, container) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image_id) (max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\", image_id!=\"\"}[$__range]))) or on (cluster, namespace, workload_type, workload, revision, revision_source, container) (0 * count by (cluster, namespace, workload_type, workload, revision, revision_source, container) (max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "Image population",
+              "range": false,
+              "refId": "AB"
+            },
             {
               "datasource": {
                 "type": "prometheus",
@@ -4745,7 +5126,7 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "sum by (cluster, namespace, workload_type, workload, revision, revision_source, container) (increase(resource_review:container_restarts_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))",
+              "expr": "sum by (cluster, namespace, workload_type, workload, revision, revision_source, container) (sum without (image, image_id) (increase(resource_review:container_restarts_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))",
               "format": "table",
               "instant": true,
               "legendFormat": "Restarts",
@@ -4817,7 +5198,7 @@
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "count by (cluster, namespace, workload_type, workload, revision, revision_source, container) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, warning) (label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU usage unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_cpu_throttled_periods:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU throttled-period evidence unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_cpu_throttled_seconds:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU throttled-time evidence unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_usage_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Total memory unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_working_set_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory working set unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_rss_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory RSS unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_cache_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory cache unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_cpu_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU PSI unavailable (optional)\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory PSI unavailable (optional)\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU request not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU limit not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory request not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory limit not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_oom_events_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"cAdvisor OOM counter unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_restarts_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Restart counter unavailable\", \"container\", \".*\") or label_replace((last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) == 0), \"warning\", \"CPU request is zero; ratio omitted\", \"container\", \".*\") or label_replace((last_over_time(resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) == 0), \"warning\", \"Memory request is zero; ratio omitted\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\", revision_source=\"pod_uid\"}[$__range])), \"warning\", \"Revision falls back to Pod UID\", \"container\", \".*\") or label_replace(((count by (cluster, namespace, workload_type, workload, revision, revision_source, container) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))) > 1) * on (cluster, namespace, workload_type, workload, revision, revision_source, container) group_right() count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image, image_id) (max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]))), \"warning\", \"Multiple immutable images in one revision\", \"container\", \".*\") or label_replace((clamp_max(count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) / ($__range_s / 60), 1) < 0.8), \"warning\", \"CPU sample coverage below 80%\", \"container\", \".*\"))) or on (cluster, namespace, workload_type, workload, revision, revision_source, container) (0 * count by (cluster, namespace, workload_type, workload, revision, revision_source, container) (max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))",
+              "expr": "count by (cluster, namespace, workload_type, workload, revision, revision_source, container) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, warning) (label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU usage unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_cpu_throttled_periods:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU throttled-period evidence unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_cpu_throttled_seconds:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU throttled-time evidence unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_usage_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Total memory unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_working_set_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory working set unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_rss_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory RSS unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_cache_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory cache unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_cpu_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU PSI unavailable (optional)\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_memory_pressure_waiting:ratio_rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory PSI unavailable (optional)\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU request not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_cpu_limit_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"CPU limit not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory request not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) last_over_time(resource_review:container_memory_limit_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Memory limit not configured\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_oom_events_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"cAdvisor OOM counter unavailable\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) unless on (cluster, namespace, pod, uid, container) max_over_time(resource_review:container_restarts_total{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])), \"warning\", \"Restart counter unavailable\", \"container\", \".*\") or label_replace((last_over_time(resource_review:container_cpu_request_cores{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) == 0), \"warning\", \"CPU request is zero; ratio omitted\", \"container\", \".*\") or label_replace((last_over_time(resource_review:container_memory_request_bytes{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) == 0), \"warning\", \"Memory request is zero; ratio omitted\", \"container\", \".*\") or label_replace((max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\", revision_source=\"pod_uid\"}[$__range])), \"warning\", \"Revision falls back to Pod UID\", \"container\", \".*\") or label_replace(((count by (cluster, namespace, workload_type, workload, revision, revision_source, container) (count by (cluster, namespace, workload_type, workload, revision, revision_source, container, image_id) (max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\", image_id!=\"\"}[$__range]))) or on (cluster, namespace, workload_type, workload, revision, revision_source, container) (0 * count by (cluster, namespace, workload_type, workload, revision, revision_source, container) (max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))) > 1), \"warning\", \"Multiple immutable images in one revision\", \"container\", \".*\") or label_replace((clamp_max(count_over_time(resource_review:container_cpu_usage_cores:rate5m{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range]) / ($__range_s / 60), 1) < 0.8), \"warning\", \"CPU sample coverage below 80%\", \"container\", \".*\"))) or on (cluster, namespace, workload_type, workload, revision, revision_source, container) (0 * count by (cluster, namespace, workload_type, workload, revision, revision_source, container) (max_over_time(resource_review:workload_revision_pod_container_info{namespace=~\"$namespace\", workload_type=~\"$workload_type\", workload=~\"$workload\", revision=~\"$revision\", pod=~\"$pod\", container=~\"$container\"}[$__range])))",
               "format": "table",
               "instant": true,
               "legendFormat": "Missing evidence warnings",
@@ -4861,30 +5242,59 @@
                   "Time 6": true,
                   "Time 7": true,
                   "Time 8": true,
-                  "Time 9": true
+                  "Time 9": true,
+                  "cluster": true,
+                  "namespace": true,
+                  "revision_source": true,
+                  "workload": true,
+                  "workload_type": true
                 },
                 "indexByName": {
-
+                  "Value #A": 6,
+                  "Value #AA": 3,
+                  "Value #AB": 2,
+                  "Value #B": 11,
+                  "Value #D": 7,
+                  "Value #E": 8,
+                  "Value #F": 12,
+                  "Value #G": 16,
+                  "Value #I": 13,
+                  "Value #K": 5,
+                  "Value #M": 17,
+                  "Value #N": 18,
+                  "Value #O": 20,
+                  "Value #R": 9,
+                  "Value #S": 10,
+                  "Value #T": 14,
+                  "Value #U": 15,
+                  "Value #V": 4,
+                  "Value #W": 21,
+                  "Value #X": 22,
+                  "Value #Y": 23,
+                  "Value #Z": 19,
+                  "container": 1,
+                  "revision": 0
                 },
                 "renameByName": {
-                  "Value #A": "Current CPU request",
-                  "Value #AA": "Missing evidence warnings",
-                  "Value #B": "Current CPU limit",
+                  "Value #A": "CPU request",
+                  "Value #AA": "Warnings",
+                  "Value #AB": "Image population",
+                  "Value #B": "CPU limit",
                   "Value #D": "CPU p95",
-                  "Value #E": "CPU maximum",
-                  "Value #F": "Current memory request",
-                  "Value #G": "Current memory limit",
-                  "Value #I": "Memory maximum",
-                  "Value #K": "Observation duration",
+                  "Value #E": "CPU max",
+                  "Value #F": "Memory request",
+                  "Value #G": "Memory limit",
+                  "Value #I": "Memory max",
+                  "Value #K": "CPU history",
                   "Value #M": "OOM events",
                   "Value #N": "Restarts",
-                  "Value #O": "Throttled-period percentage",
-                  "Value #R": "CPU absolute difference from request",
-                  "Value #S": "CPU percentage difference from request",
-                  "Value #T": "Memory absolute difference from request",
-                  "Value #U": "Memory percentage difference from request",
-                  "Value #V": "Replica count",
-                  "Value #W": "Throttled-time rate",
+                  "Value #O": "Throttled periods",
+                  "Value #R": "CPU difference",
+                  "Value #S": "CPU difference %",
+                  "Value #T": "Memory difference",
+                  "Value #U": "Memory difference %",
+                  "Value #V": "Replicas",
+                  "Value #W": "Throttled time",
                   "Value #X": "CPU pressure",
                   "Value #Y": "Memory pressure",
                   "Value #Z": "OOMKilled",
@@ -4949,8 +5359,15 @@
         "hide": 0,
         "label": "Cluster",
         "name": "cluster",
-        "query": "current-cluster",
-        "type": "constant"
+        "options": [
+          {
+            "selected": true,
+            "text": "current-cluster",
+            "value": "current-cluster"
+          }
+        ],
+        "query": "current-cluster : current-cluster",
+        "type": "custom"
       },
       {
         "allValue": null,

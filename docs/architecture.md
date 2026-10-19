@@ -48,7 +48,7 @@ Once the recording rules attach these labels, every dashboard query depends on t
 1. **Each revision stays separate.** When a query combines several series, it keeps `revision` or another label that separates one immutable Pod execution from another.
 2. **Each event stays with its Pod UID.** Restart and out-of-memory metrics receive `uid` while the matching Pod details are available, so a later Pod with the same name receives its own history.
 3. **Each cluster stays separate.** Every multi-cluster join and summary keeps the configured cluster label.
-4. **Each exact image stays separate.** Revision summaries keep both `image`, the configured image name, and `image_id`, the exact image content that the container used.
+4. **Each exact image remains identifiable.** Pod-level series and the current configuration table keep `image` and `image_id`. The final review combines a revision's images and marks that population as **Mixed images** when more than one known immutable image ID appears. Its maxima can come from different images.
 5. **An empty value still means no data.** A missing series stays empty, while a measured zero appears as `0`.
 6. **A difference uses the values beside it.** The query subtracts the same request and usage values that the dashboard shows next to the difference.
 7. **The query calculates each Pod first.** It finds the percentiles and maximums for each immutable Pod execution before it summarizes a revision. For example, p95 is the value that 95 percent of samples stayed at or below.

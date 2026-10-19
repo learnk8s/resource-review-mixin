@@ -49,7 +49,7 @@ fail() {
     *'i/o timeout'*|*'context deadline exceeded'*|*'Client.Timeout exceeded'*)
       detail='The request timed out.'
       ;;
-    *'connection refused'*|*'connect: connection refused'*)
+    *'connection refused'*)
       detail='The remote service refused the connection.'
       ;;
     *'x509:'*|*'certificate signed by unknown authority'*)
