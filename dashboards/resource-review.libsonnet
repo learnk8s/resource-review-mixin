@@ -133,17 +133,20 @@ function(config)
   };
 
   local graphSeries(expr) = 'label_replace(label_replace(%s, "pod_execution", "$1", "uid", "(.{1,8}).*"), "image_digest", "$1", "image_id", ".*sha256:([a-zA-Z0-9]{1,8}).*")' % expr;
-  local podLegend = (if config.showMultiCluster then '{{%s}} / ' % clusterLabel else '') + '{{pod}} / {{container}} [{{pod_execution}} / {{image_digest}}]';
+  local clusterLegend = if config.showMultiCluster then '{{%s}} / ' % clusterLabel else '';
+  local podLegend = clusterLegend + '{{pod_execution}} / {{container}} [{{image_digest}}] · {{pod}}';
+  local runtimeLegend = clusterLegend + '{{pod_execution}} / {{container}} · {{pod}}';
   local visibleClusterFields = if config.showMultiCluster then [clusterLabel] else [];
   local hiddenClusterFields = if config.showMultiCluster then [] else [clusterLabel];
 
-  local target(refId, expr, legend='', instant=false, format='time_series') =
+  local target(refId, expr, legend='', instant=false, format='time_series', minStep=null) =
     prometheus.new('${datasource}', if instant then expr else graphSeries(expr))
     + prometheus.withRefId(refId)
     + prometheus.withLegendFormat(legend)
     + prometheus.withInstant(instant)
     + prometheus.withRange(!instant)
-    + prometheus.withFormat(format);
+    + prometheus.withFormat(format)
+    + if minStep != null then { interval: minStep } else {};
 
   local grid(x, y, w=12, h=8) = { x: x, y: y, w: w, h: h };
   // overrides lets a caller style specific query refIds differently (for
@@ -156,6 +159,7 @@ function(config)
     + g.panel.timeSeries.queryOptions.withDatasource(ds.type, ds.uid)
     + g.panel.timeSeries.queryOptions.withTargets(targets)
     + g.panel.timeSeries.standardOptions.withUnit(unit)
+    + g.panel.timeSeries.standardOptions.withMin(0)
     + g.panel.timeSeries.standardOptions.withOverrides(overrides)
     + g.panel.timeSeries.fieldConfig.defaults.custom.withDrawStyle('line')
     + g.panel.timeSeries.fieldConfig.defaults.custom.withLineInterpolation('smooth')
@@ -164,13 +168,13 @@ function(config)
     + g.panel.timeSeries.fieldConfig.defaults.custom.withGradientMode('opacity')
     + g.panel.timeSeries.fieldConfig.defaults.custom.withShowPoints('never')
     + g.panel.timeSeries.fieldConfig.defaults.custom.withSpanNulls(false)
-    + g.panel.timeSeries.options.legend.withDisplayMode('table')
+    + g.panel.timeSeries.options.legend.withDisplayMode('list')
     + g.panel.timeSeries.options.legend.withPlacement('bottom')
     + g.panel.timeSeries.options.legend.withShowLegend(true)
-    + g.panel.timeSeries.options.legend.withCalcs(['lastNotNull', 'max'])
+    + g.panel.timeSeries.options.legend.withCalcs(['lastNotNull'])
     + g.panel.timeSeries.options.tooltip.withMode('multi')
     + g.panel.timeSeries.options.tooltip.withSort('desc')
-    + { id: id }
+    + { id: id, fieldConfig+: { defaults+: { max: if unit == 'percentunit' then 1 else null, custom+: { stacking: { mode: 'none', group: 'A' } } } } }
     + if thresholds != null then {
       fieldConfig+: {
         defaults+: {
@@ -384,13 +388,6 @@ function(config)
       id: id,
     };
 
-  local row(id, title, y, collapsed=false, panels=[]) =
-    g.panel.row.new(title)
-    + g.panel.row.withId(id)
-    + g.panel.row.withCollapsed(collapsed)
-    + g.panel.row.withGridPos(y)
-    + g.panel.row.withPanels(panels);
-
   // Styles a request or limit overlay line on a multi-target timeSeries panel
   // so usage, request, and limit are visually distinct instead of identical
   // solid lines.
@@ -478,27 +475,70 @@ function(config)
     ]
   )
   + g.dashboard.withPanels(std.sort([
-    row(10, 'Workload Context', 0),
-    stat(19, 'Current Pods', 'Pod UIDs currently reported for the selected revisions. This is not the desired or Ready replica count.', grid(0, 1, 4, 5), [
+    stat(19, 'Current Pods', 'Pod UIDs currently reported for the selected revisions. This is not the desired or Ready replica count.', grid(0, 0, 3, 3), [
       target('A', 'count(count by (%s, namespace, pod, uid) (%s))' % [clusterLabel, identityMetric], 'Current Pods', true),
     ]),
-    stat(12, 'Pod executions', 'Distinct Pod UIDs seen during the selected time window, including Pods that have since been replaced.', grid(4, 1, 4, 5), [
+    stat(12, 'Pod executions', 'Distinct Pod UIDs seen during the selected time window, including Pods that have since been replaced.', grid(3, 0, 3, 3), [
       target('A', 'count(count by (%s, namespace, pod, uid) (%s))' % [clusterLabel, identity], 'Pod executions', true),
     ]),
-    stat(18, 'Revisions', 'Distinct workload revisions seen during the selected time window. The detailed revision table shows how each revision was identified.', grid(8, 1, 4, 5), [
+    stat(18, 'Revisions', 'Distinct workload revisions seen during the selected time window. The detailed revision table shows how each revision was identified.', grid(6, 0, 3, 3), [
       target('A', 'count(count by (%s, namespace, workload_type, workload, revision, revision_source) (%s))' % [clusterLabel, identity], 'Revisions', true),
     ]),
-    stat(17, 'Nodes', 'Nodes that ran the selected Pod executions during the time window. One node cannot reveal host-dependent differences.', grid(12, 1, 4, 5), [
+    stat(17, 'Nodes', 'Nodes that ran the selected Pod executions during the time window. One node cannot reveal host-dependent differences.', grid(9, 0, 3, 3), [
       target('A', 'count(count by (%s, namespace, node) (%s))' % [clusterLabel, identity], 'Nodes', true),
     ]),
-    stat(14, 'Shortest history', 'CPU history available for the least-observed selected replica. A known replica without CPU samples has zero history.', grid(16, 1, 4, 5), [
+    stat(14, 'Shortest history', 'CPU history available for the least-observed selected replica. A known replica without CPU samples has zero history.', grid(12, 0, 4, 3), [
       target('A', 'min(%s)' % cpuHistory, 'History', true),
     ], 's'),
-    stat(15, 'CPU coverage', 'Lowest share of expected one-minute CPU samples available for any selected replica in the time window. Known replicas without CPU samples count as zero coverage.', grid(20, 1, 4, 5), [
+    stat(15, 'CPU coverage', 'Lowest share of expected one-minute CPU samples available for any selected replica in the time window. Known replicas without CPU samples count as zero coverage.', grid(16, 0, 4, 3), [
       target('A', 'min(%s)' % cpuCoverage, 'Coverage', true),
     ], 'percentunit'),
+    stat(16, 'Mixed image groups', 'Revision and container groups with more than one known immutable image ID in the selected window. Separate revisions do not become a mixed group.', grid(20, 0, 4, 3), [
+      target('A', 'count((%s) > 1) or (0 * count(%s))' % [summaryImageCount, identity], 'Mixed image groups', true),
+    ]) + { fieldConfig+: { defaults+: { thresholds: { mode: 'absolute', steps: [{ color: 'blue', value: null }, { color: 'orange', value: 1 }] } } } },
 
-    table(9, 'Current workload revisions and configuration', 'One row per currently reported workload revision, container, and immutable image. The filters identify the workload. Each row shows replica count, revision age, requests, limits, and the shortest available CPU history.', grid(0, 6, 24, 8), [
+    timeSeries(21, 'CPU usage, request, and limit', 'Five-minute CPU usage in cores, with each Pod execution kept separate. Dashed orange lines show requests and dashed red lines show limits. Empty lines mean unavailable or unconfigured evidence.', grid(0, 3, 12, 10), [
+      target('A', cpuUsage, podLegend + ' usage'),
+      target('B', cpuRequest, podLegend + ' request'),
+      target('C', cpuLimit, podLegend + ' limit'),
+    ], overrides=[dashedOverride('B', 'orange'), dashedOverride('C', 'red')]),
+    timeSeries(31, 'Memory usage, request, and limit', 'Total memory charged to each container cgroup, including file cache and kernel-accounted memory. Dashed orange lines show requests and dashed red lines show limits.', grid(12, 3, 12, 10), [
+      target('A', memoryUsage, podLegend + ' total'),
+      target('B', memoryRequest, podLegend + ' request'),
+      target('C', memoryLimit, podLegend + ' limit'),
+    ], 'bytes', overrides=[dashedOverride('B', 'orange'), dashedOverride('C', 'red')]),
+    timeSeries(23, 'CPU throttled periods', 'Share of CPU quota periods containing throttling. It proves quota enforcement, not application impact. The threshold is a visual highlight, not a verdict.', grid(0, 13, 6, 7), [
+      target('A', cpuThrottled, podLegend),
+    ], 'percentunit', thresholds=[
+      { color: 'green', value: null },
+      { color: 'red', value: config.cpuThrottledWarningRatio },
+    ]),
+    timeSeries(24, 'CPU throttled time', 'Seconds of throttled task time per wall-clock second. Parallel tasks can make this value exceed one.', grid(6, 13, 6, 7), [
+      target('A', cpuThrottledTime, podLegend),
+    ], 'short'),
+    timeSeries(25, 'CPU pressure (PSI)', 'Fraction of time with at least one runnable task waiting for CPU. No data means unavailable, not zero. PSI does not identify whether quota or node contention caused the wait.', grid(12, 13, 6, 7), [
+      target('A', cpuPressure, podLegend + ' / {{node}}'),
+    ], 'percentunit'),
+    timeSeries(36, 'Memory pressure (PSI)', 'Fraction of time tasks could not make progress while Linux tried to reclaim memory. No data means unavailable, not zero.', grid(18, 13, 6, 7), [
+      target('A', memoryPressure, podLegend + ' / {{node}}'),
+    ], 'percentunit'),
+    timeSeries(32, 'Memory breakdown: working set, RSS, and cache', 'Working set subtracts inactive file cache from total memory. RSS primarily reflects resident anonymous memory, while cache reflects retained file content. These measurements overlap and are not stacked.', grid(0, 20, 12, 8), [
+      target('A', memoryWss, podLegend + ' working set'),
+      target('B', memoryRss, podLegend + ' RSS'),
+      target('C', memoryCache, podLegend + ' cache'),
+    ], 'bytes'),
+    timeSeries(37, 'OOM and restart activity', 'New cAdvisor OOM events and Kubernetes restarts in rolling intervals, per Pod UID and container. The interval follows the graph resolution with a four-minute minimum. These are approximate activity counts, not exact event timestamps or totals for the selected period.', grid(12, 20, 12, 8), [
+      target('A', 'sum without (image, image_id) (increase(%s[$__rate_interval]))' % oomCounter, runtimeLegend + ' OOM', minStep='1m'),
+      target('B', 'sum without (image, image_id) (increase(%s[$__rate_interval]))' % restartCounter, runtimeLegend + ' restarts', minStep='1m'),
+    ], overrides=[
+      { matcher: { id: 'byFrameRefID', options: 'A' }, properties: [{ id: 'color', value: { mode: 'fixed', fixedColor: 'red' } }] },
+      { matcher: { id: 'byFrameRefID', options: 'B' }, properties: [{ id: 'color', value: { mode: 'fixed', fixedColor: 'orange' } }] },
+    ])
+    + g.panel.timeSeries.fieldConfig.defaults.custom.withDrawStyle('bars')
+    + g.panel.timeSeries.fieldConfig.defaults.custom.withFillOpacity(45)
+    + { fieldConfig+: { defaults+: { custom+: { axisSoftMax: 1 } } } },
+
+    table(9, 'Current workload revisions and configuration', 'One row per currently reported workload revision, container, and immutable image. The filters identify the workload. Each row shows replica count, revision age, requests, limits, and the shortest available CPU history.', grid(0, 28, 24, 6), [
       target('A', currentReplicaCount, 'Replica count', true, 'table'),
       target('B', currentRevisionAge, 'Revision age', true, 'table'),
       target('C', currentCpuRequest, 'CPU request', true, 'table'),
@@ -516,8 +556,7 @@ function(config)
       { ref: 'G', name: 'CPU history', unit: 's', width: 105 },
     ], extraExclude=['namespace', 'workload_type', 'workload', 'revision_source'] + hiddenClusterFields, compact=true, fieldOrder=visibleClusterFields + ['revision', 'container', 'image_id']),
 
-    row(40, 'Replica Comparison', 16),
-    table(41, 'CPU usage, throttling, and pressure by Pod and node', 'Each row keeps one Pod and node visible. Average, p95, maximum, throttling, pressure, history, and coverage are calculated for that Pod UID before any workload-level summary.', grid(0, 17, 24, 8), [
+    table(41, 'CPU usage, throttling, and pressure by Pod and node', 'Each row keeps one Pod and node visible. Average, p95, maximum, throttling, pressure, history, and coverage are calculated for that Pod UID before any workload-level summary.', grid(0, 34, 24, 8), [
       target('A', average(cpuUsage), 'Average CPU', true, 'table'),
       target('B', p95(cpuUsage), 'p95 CPU', true, 'table'),
       target('C', maximum(cpuUsage), 'Maximum CPU', true, 'table'),
@@ -526,17 +565,23 @@ function(config)
       target('F', maximum(cpuPressure), 'Maximum CPU pressure', true, 'table'),
       target('G', cpuHistory, 'History', true, 'table'),
       target('H', cpuCoverage, 'Coverage', true, 'table'),
+      target('I', last(cpuRequest), 'CPU request', true, 'table'),
+      target('J', '(' + last(cpuRequest) + ' - ' + p95(cpuUsage) + ') and on (' + matchLabels + ') (' + last(cpuRequest) + ' > 0)', 'Request minus p95', true, 'table'),
+      target('K', '((' + last(cpuRequest) + ' - ' + p95(cpuUsage) + ') / ' + last(cpuRequest) + ') and on (' + matchLabels + ') (' + last(cpuRequest) + ' > 0)', 'Difference ratio', true, 'table'),
     ], [
       { ref: 'A', name: 'Average CPU', unit: 'short', width: 110 },
       { ref: 'B', name: 'CPU p95', unit: 'short', width: 80 },
       { ref: 'C', name: 'CPU max', unit: 'short', width: 80 },
+      { ref: 'I', name: 'CPU request', unit: 'short', width: 105 },
+      { ref: 'J', name: 'Request − p95', unit: 'short', width: 115 },
+      { ref: 'K', name: 'Difference %', unit: 'percentunit', width: 105 },
       { ref: 'D', name: 'Throttled periods', unit: 'percentunit', width: 135 },
       { ref: 'E', name: 'Throttled time', unit: 'short', width: 110 },
       { ref: 'F', name: 'CPU pressure', unit: 'percentunit', width: 115 },
       { ref: 'G', name: 'History', unit: 's', width: 80 },
       { ref: 'H', name: 'Coverage', unit: 'percentunit', width: 80 },
     ], extraExclude=['namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id'] + hiddenClusterFields, compact=true, fieldOrder=visibleClusterFields + ['revision', 'pod', 'container', 'node']),
-    table(42, 'Memory, OOM events, and restarts by Pod and node', 'Each row keeps one Pod and node visible. Working set, total memory, pressure, OOM events, OOMKilled state, and restarts stay separate so one replica cannot disappear inside a workload average.', grid(0, 25, 24, 8), [
+    table(42, 'Memory, OOM events, and restarts by Pod and node', 'Each row keeps one Pod and node visible. Working set, total memory, pressure, OOM events, OOMKilled state, and restarts stay separate so one replica cannot disappear inside a workload average.', grid(0, 42, 24, 8), [
       target('A', average(memoryWss), 'Average working set', true, 'table'),
       target('B', maximum(memoryWss), 'Maximum working set', true, 'table'),
       target('C', maximum(memoryUsage), 'Maximum total memory', true, 'table'),
@@ -544,164 +589,84 @@ function(config)
       target('E', oomEvents, 'OOM events', true, 'table'),
       target('F', restarts, 'Restarts', true, 'table'),
       target('G', oomKilled, 'OOMKilled', true, 'table'),
+      target('H', maximum(memoryRss), 'Maximum RSS', true, 'table'),
+      target('I', maximum(memoryCache), 'Maximum cache', true, 'table'),
     ], [
       { ref: 'A', name: 'Average working set', unit: 'bytes', width: 125 },
       { ref: 'B', name: 'Max working set', unit: 'bytes', width: 115 },
       { ref: 'C', name: 'Max total memory', unit: 'bytes', width: 120 },
+      { ref: 'H', name: 'RSS max', unit: 'bytes', width: 90 },
+      { ref: 'I', name: 'Cache max', unit: 'bytes', width: 100 },
       { ref: 'D', name: 'Memory pressure', unit: 'percentunit', width: 115 },
       { ref: 'E', name: 'OOM events', unit: 'short', width: 80 },
       { ref: 'F', name: 'Restarts', unit: 'short', width: 70 },
       { ref: 'G', name: 'OOMKilled', unit: 'bool', width: 85 },
     ], extraExclude=['namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id'] + hiddenClusterFields, compact=true, fieldOrder=visibleClusterFields + ['revision', 'pod', 'container', 'node']),
 
-    row(50, 'Review Table', 33, true, [
-      table(51, 'Workload revision and container review', 'One row per workload revision and container. Image population identifies revisions with multiple known immutable images. Values in a Mixed images row can come from different images. The row includes requests, usage, resource differences, replica count, history, runtime signals, and warnings.', grid(0, 34, 24, 13), [
-        target('AB', summaryImageCount, 'Image population', true, 'table'),
-        target('A', summaryCpuRequest, 'Current CPU request', true, 'table'),
-        target('B', summaryCpuLimit, 'Current CPU limit', true, 'table'),
-        target('D', summaryCpuP95, 'CPU p95', true, 'table'),
-        target('E', summaryCpuMax, 'CPU maximum', true, 'table'),
-        target('F', summaryMemoryRequest, 'Current memory request', true, 'table'),
-        target('G', summaryMemoryLimit, 'Current memory limit', true, 'table'),
-        target('I', summaryMemoryMax, 'Memory maximum', true, 'table'),
-        target('R', summaryCpuDifference, 'CPU absolute difference from request', true, 'table'),
-        target('S', '((' + summaryCpuDifference + ') / (' + summaryCpuRequest + ')) and on (' + summaryLabels + ') (' + summaryCpuRequest + ' > 0)', 'CPU percentage difference from request', true, 'table'),
-        target('T', summaryMemoryDifference, 'Memory absolute difference from request', true, 'table'),
-        target('U', '((' + summaryMemoryDifference + ') / (' + summaryMemoryRequest + ')) and on (' + summaryLabels + ') (' + summaryMemoryRequest + ' > 0)', 'Memory percentage difference from request', true, 'table'),
-        target('V', 'count by (' + summaryLabels + ') (count by (' + summaryLabels + ', pod, uid) (' + identity + '))', 'Replica count', true, 'table'),
-        target('K', 'min by (' + summaryLabels + ') (' + cpuHistory + ')', 'Observation duration', true, 'table'),
-        target('M', 'sum by (' + summaryLabels + ') (' + oomEvents + ')', 'OOM events', true, 'table'),
-        target('N', 'sum by (' + summaryLabels + ') (' + restarts + ')', 'Restarts', true, 'table'),
-        target('O', summaryCpuThrottled, 'Throttled-period percentage', true, 'table'),
-        target('W', summaryCpuThrottledTime, 'Throttled-time rate', true, 'table'),
-        target('X', summaryCpuPressure, 'CPU pressure', true, 'table'),
-        target('Y', summaryMemoryPressure, 'Memory pressure', true, 'table'),
-        target('Z', summaryOomKilled, 'OOMKilled', true, 'table'),
-        target('AA', summaryWarningCount, 'Missing evidence warnings', true, 'table'),
-      ], [
-        { ref: 'AB', name: 'Image population', unit: 'short', width: 140 },
-        { ref: 'AA', name: 'Warnings', unit: 'short', width: 85 },
-        { ref: 'V', name: 'Replicas', unit: 'short', width: 85 },
-        { ref: 'K', name: 'CPU history', unit: 's', width: 100 },
-        { ref: 'A', name: 'CPU request', unit: 'short', width: 105 },
-        { ref: 'D', name: 'CPU p95', unit: 'short', width: 80 },
-        { ref: 'E', name: 'CPU max', unit: 'short', width: 80 },
-        { ref: 'R', name: 'CPU difference', unit: 'short', width: 120 },
-        { ref: 'S', name: 'CPU difference %', unit: 'percentunit', width: 135 },
-        { ref: 'B', name: 'CPU limit', unit: 'short', width: 90 },
-        { ref: 'F', name: 'Memory request', unit: 'bytes', width: 120 },
-        { ref: 'I', name: 'Memory max', unit: 'bytes', width: 105 },
-        { ref: 'T', name: 'Memory difference', unit: 'bytes', width: 135 },
-        { ref: 'U', name: 'Memory difference %', unit: 'percentunit', width: 155 },
-        { ref: 'G', name: 'Memory limit', unit: 'bytes', width: 110 },
-        { ref: 'M', name: 'OOM events', unit: 'short', width: 80 },
-        { ref: 'N', name: 'Restarts', unit: 'short', width: 70 },
-        { ref: 'Z', name: 'OOMKilled', unit: 'bool', width: 85 },
-        { ref: 'O', name: 'Throttled periods', unit: 'percentunit', width: 120 },
-        { ref: 'W', name: 'Throttled time', unit: 'short', width: 110 },
-        { ref: 'X', name: 'CPU pressure', unit: 'percentunit', width: 100 },
-        { ref: 'Y', name: 'Memory pressure', unit: 'percentunit', width: 115 },
-      ], extraExclude=['namespace', 'workload_type', 'workload', 'revision_source'] + hiddenClusterFields, compact=true, fieldOrder=visibleClusterFields + ['revision', 'container'], extraOverrides=[
-        {
-          matcher: { id: 'byName', options: 'Image population' },
-          properties: [
-            {
-              id: 'mappings',
-              value: [
-                { type: 'value', options: {
-                  '0': { text: 'Unknown images', color: 'orange' },
-                  '1': { text: '1 known image', color: 'blue' },
-                } },
-                { type: 'range', options: { from: 2, to: 1e9, result: { text: 'Mixed images', color: 'orange' } } },
-              ],
-            },
-            { id: 'custom.cellOptions', value: { type: 'color-text' } },
-          ],
-        },
-      ]),
-    ]),
-
-    row(20, 'CPU Evidence', 14, true, [
-      timeSeries(21, 'CPU usage over time', 'CPU usage is a five-minute rate in cores. Each line keeps the Pod UID and revision identity.', grid(0, 15, 24, 9), [
-        target('A', cpuUsage, podLegend + ' usage'),
-      ]),
-      table(22, 'p95 and maximum CPU usage', 'p95 and maximum are calculated independently for each Pod UID over the selected time window.', grid(0, 24, 24, 8), [
-        target('A', p95(cpuUsage), 'CPU p95', true, 'table'),
-        target('B', maximum(cpuUsage), 'CPU maximum', true, 'table'),
-      ], [
-        { ref: 'A', name: 'CPU p95', unit: 'short' },
-        { ref: 'B', name: 'CPU maximum', unit: 'short' },
-      ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
-      timeSeries(26, 'CPU request and limit', 'Request and limit lines retain Pod UID and revision identity. Request is dashed orange; limit is dashed red.', grid(0, 32, 24, 8), [
-        target('A', cpuRequest, podLegend + ' request'),
-        target('B', cpuLimit, podLegend + ' limit'),
-      ], overrides=[dashedOverride('A', 'orange'), dashedOverride('B', 'red')]),
-      table(27, 'Difference between the request and p95 usage', 'The table subtracts the displayed p95 from the configured request for each Pod UID. The ratio is omitted when the request is missing or zero.', grid(0, 40, 24, 8), [
-        target('A', '(' + last(cpuRequest) + ' - ' + p95(cpuUsage) + ') and on (' + matchLabels + ') (' + last(cpuRequest) + ' > 0)', 'Request minus p95', true, 'table'),
-        target('B', '((' + last(cpuRequest) + ' - ' + p95(cpuUsage) + ') / ' + last(cpuRequest) + ') and on (' + matchLabels + ') (' + last(cpuRequest) + ' > 0)', 'Difference ratio', true, 'table'),
-      ], [
-        { ref: 'A', name: 'Request minus p95', unit: 'short' },
-        { ref: 'B', name: 'Difference ratio', unit: 'percentunit' },
-      ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
-      timeSeries(23, 'CPU throttled-period percentage', 'Share of CPU quota periods containing throttling. It proves quota enforcement, not application impact. The threshold is a visual highlight, not a verdict.', grid(0, 48, 24, 8), [
-        target('A', cpuThrottled, podLegend),
-      ], 'percentunit', thresholds=[
-        { color: 'green', value: null },
-        { color: 'red', value: config.cpuThrottledWarningRatio },
-      ]),
-      timeSeries(24, 'CPU throttled time', 'Seconds of throttled task time per wall-clock second. Parallel tasks can make this value exceed one.', grid(0, 56, 24, 8), [
-        target('A', cpuThrottledTime, podLegend),
-      ], 'short'),
-      timeSeries(25, 'CPU pressure when PSI metrics exist', 'Fraction of time with at least one runnable task waiting for CPU. No data means unavailable, not zero; PSI does not identify whether quota or node contention caused the wait.', grid(0, 64, 24, 8), [
-        target('A', cpuPressure, podLegend + ' / {{node}}'),
-      ], 'percentunit'),
-    ]),
-
-    row(30, 'Memory Evidence', 15, true, [
-      timeSeries(31, 'Total container memory', 'Memory currently charged to the container cgroup. This includes more than application heap and can include file cache and kernel-accounted memory.', grid(0, 16, 24, 9), [
-        target('A', memoryUsage, podLegend + ' total'),
-      ], 'bytes'),
-      timeSeries(32, 'Working-set memory', 'Total container memory minus inactive file cache. This is not the same as application memory or memory that Linux can never reclaim.', grid(0, 25, 24, 9), [
-        target('B', memoryWss, podLegend + ' working set'),
-      ], 'bytes'),
-      timeSeries(33, 'RSS and cache', 'RSS primarily reflects resident anonymous memory; cache reflects file content retained for reuse. They do not account for every byte in total container memory.', grid(0, 34, 24, 8), [
-        target('A', memoryRss, podLegend + ' RSS'),
-        target('B', memoryCache, podLegend + ' cache'),
-      ], 'bytes'),
-      table(34, 'Maximum values for the selected period', 'The highest sampled total, working-set, RSS, and cache values are calculated separately for each Pod UID over the selected time period.', grid(0, 42, 24, 8), [
-        target('A', maximum(memoryUsage), 'Total maximum', true, 'table'),
-        target('B', maximum(memoryWss), 'Working-set maximum', true, 'table'),
-        target('C', maximum(memoryRss), 'RSS maximum', true, 'table'),
-        target('D', maximum(memoryCache), 'Cache maximum', true, 'table'),
-      ], [
-        { ref: 'A', name: 'Total maximum', unit: 'bytes' },
-        { ref: 'B', name: 'Working-set maximum', unit: 'bytes' },
-        { ref: 'C', name: 'RSS maximum', unit: 'bytes' },
-        { ref: 'D', name: 'Cache maximum', unit: 'bytes' },
-      ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
-      timeSeries(35, 'Memory request and limit', 'The request is used when Kubernetes schedules the Pod. The limit is the cgroup ceiling. Request is dashed orange; limit is dashed red.', grid(0, 50, 24, 8), [
-        target('A', memoryRequest, podLegend + ' request'),
-        target('B', memoryLimit, podLegend + ' limit'),
-      ], 'bytes', overrides=[dashedOverride('A', 'orange'), dashedOverride('B', 'red')]),
-      timeSeries(36, 'Memory pressure when PSI metrics exist', 'Fraction of time tasks could not make progress while Linux tried to reclaim memory. No data means unavailable, not zero.', grid(0, 58, 24, 8), [
-        target('A', memoryPressure, podLegend + ' / {{node}}'),
-      ], 'percentunit'),
-      table(37, 'cAdvisor OOM events', 'New out-of-memory events reported by cAdvisor during the selected time period. Each row keeps the Pod UID and revision that produced the counter.', grid(0, 66, 24, 8), [
-        target('A', oomEvents, 'cAdvisor OOM events', true, 'table'),
-      ], [
-        { ref: 'A', name: 'OOM events', unit: 'short' },
-      ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
-      table(38, 'Kubernetes OOMKilled state', 'Whether OOMKilled was seen as the last termination reason during the selected time period. A newer termination reason can replace it, so this is not a count of every OOM kill.', grid(0, 74, 24, 8), [
-        target('A', oomKilled, 'OOMKilled', true, 'table'),
-      ], [
-        { ref: 'A', name: 'OOMKilled', unit: 'bool' },
-      ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
-      table(39, 'Container restarts', 'How many times each container restarted during the selected time period. This count does not say why the restart happened.', grid(0, 82, 24, 8), [
-        target('A', restarts, 'Restarts', true, 'table'),
-      ], [
-        { ref: 'A', name: 'Restarts', unit: 'short' },
-      ], extraExclude=[clusterLabel, 'namespace', 'workload_type', 'workload', 'revision_source', 'uid', 'image', 'image_id']),
+    table(51, 'Workload revision and container review', 'One row per workload revision and container. Image population identifies revisions with multiple known immutable images. Values in a Mixed images row can come from different images. The row includes requests, usage, resource differences, replica count, history, runtime signals, and warnings.', grid(0, 50, 24, 11), [
+      target('AB', summaryImageCount, 'Image population', true, 'table'),
+      target('A', summaryCpuRequest, 'Current CPU request', true, 'table'),
+      target('B', summaryCpuLimit, 'Current CPU limit', true, 'table'),
+      target('D', summaryCpuP95, 'CPU p95', true, 'table'),
+      target('E', summaryCpuMax, 'CPU maximum', true, 'table'),
+      target('F', summaryMemoryRequest, 'Current memory request', true, 'table'),
+      target('G', summaryMemoryLimit, 'Current memory limit', true, 'table'),
+      target('I', summaryMemoryMax, 'Memory maximum', true, 'table'),
+      target('R', summaryCpuDifference, 'CPU absolute difference from request', true, 'table'),
+      target('S', '((' + summaryCpuDifference + ') / (' + summaryCpuRequest + ')) and on (' + summaryLabels + ') (' + summaryCpuRequest + ' > 0)', 'CPU percentage difference from request', true, 'table'),
+      target('T', summaryMemoryDifference, 'Memory absolute difference from request', true, 'table'),
+      target('U', '((' + summaryMemoryDifference + ') / (' + summaryMemoryRequest + ')) and on (' + summaryLabels + ') (' + summaryMemoryRequest + ' > 0)', 'Memory percentage difference from request', true, 'table'),
+      target('V', 'count by (' + summaryLabels + ') (count by (' + summaryLabels + ', pod, uid) (' + identity + '))', 'Replica count', true, 'table'),
+      target('K', 'min by (' + summaryLabels + ') (' + cpuHistory + ')', 'Observation duration', true, 'table'),
+      target('M', 'sum by (' + summaryLabels + ') (' + oomEvents + ')', 'OOM events', true, 'table'),
+      target('N', 'sum by (' + summaryLabels + ') (' + restarts + ')', 'Restarts', true, 'table'),
+      target('O', summaryCpuThrottled, 'Throttled-period percentage', true, 'table'),
+      target('W', summaryCpuThrottledTime, 'Throttled-time rate', true, 'table'),
+      target('X', summaryCpuPressure, 'CPU pressure', true, 'table'),
+      target('Y', summaryMemoryPressure, 'Memory pressure', true, 'table'),
+      target('Z', summaryOomKilled, 'OOMKilled', true, 'table'),
+      target('AA', summaryWarningCount, 'Missing evidence warnings', true, 'table'),
+    ], [
+      { ref: 'AB', name: 'Image population', unit: 'short', width: 140 },
+      { ref: 'AA', name: 'Warnings', unit: 'short', width: 85 },
+      { ref: 'V', name: 'Replicas', unit: 'short', width: 85 },
+      { ref: 'K', name: 'CPU history', unit: 's', width: 100 },
+      { ref: 'A', name: 'CPU request', unit: 'short', width: 105 },
+      { ref: 'D', name: 'CPU p95', unit: 'short', width: 80 },
+      { ref: 'E', name: 'CPU max', unit: 'short', width: 80 },
+      { ref: 'R', name: 'CPU difference', unit: 'short', width: 120 },
+      { ref: 'S', name: 'CPU difference %', unit: 'percentunit', width: 135 },
+      { ref: 'B', name: 'CPU limit', unit: 'short', width: 90 },
+      { ref: 'F', name: 'Memory request', unit: 'bytes', width: 120 },
+      { ref: 'I', name: 'Memory max', unit: 'bytes', width: 105 },
+      { ref: 'T', name: 'Memory difference', unit: 'bytes', width: 135 },
+      { ref: 'U', name: 'Memory difference %', unit: 'percentunit', width: 155 },
+      { ref: 'G', name: 'Memory limit', unit: 'bytes', width: 110 },
+      { ref: 'M', name: 'OOM events', unit: 'short', width: 80 },
+      { ref: 'N', name: 'Restarts', unit: 'short', width: 70 },
+      { ref: 'Z', name: 'OOMKilled', unit: 'bool', width: 85 },
+      { ref: 'O', name: 'Throttled periods', unit: 'percentunit', width: 120 },
+      { ref: 'W', name: 'Throttled time', unit: 'short', width: 110 },
+      { ref: 'X', name: 'CPU pressure', unit: 'percentunit', width: 100 },
+      { ref: 'Y', name: 'Memory pressure', unit: 'percentunit', width: 115 },
+    ], extraExclude=['namespace', 'workload_type', 'workload', 'revision_source'] + hiddenClusterFields, compact=true, fieldOrder=visibleClusterFields + ['revision', 'container'], extraOverrides=[
+      {
+        matcher: { id: 'byName', options: 'Image population' },
+        properties: [
+          {
+            id: 'mappings',
+            value: [
+              { type: 'value', options: {
+                '0': { text: 'Unknown images', color: 'orange' },
+                '1': { text: '1 known image', color: 'blue' },
+              } },
+              { type: 'range', options: { from: 2, to: 1e9, result: { text: 'Mixed images', color: 'orange' } } },
+            ],
+          },
+          { id: 'custom.cellOptions', value: { type: 'color-text' } },
+        ],
+      },
     ]),
 
   ], function(panel) panel.gridPos.y), setPanelIDs=false)
-  + { version: 8 }
+  + { version: 9 }

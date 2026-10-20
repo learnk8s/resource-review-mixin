@@ -1,10 +1,13 @@
 # Kubernetes Resource Review Mixin
 
-This repository provides a [Grafana dashboard](https://grafana.com/docs/grafana/latest/dashboards/) and [Prometheus recording rules](https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/). They follow the review process from the [Kubernetes Rightsizing book](https://learnkube.com/kubernetes-rightsizing).
+> **Learn how to interpret the CPU, memory, and runtime evidence in this dashboard.**
+> [Follow the review process in The Technical Guide to Kubernetes Rightsizing →](https://learnkube.com/kubernetes-rightsizing)
 
-The dashboard compares each [Pod](https://kubernetes.io/docs/concepts/workloads/pods/). It shows CPU and memory use, CPU slowdowns, restarts, out-of-memory events, and Kubernetes [resource requests and limits](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/). The dashboard shows what happened without choosing new values for you.
+This repository includes a [Grafana dashboard](https://grafana.com/docs/grafana/latest/dashboards/) and [Prometheus recording rules](https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/). They support the review process in the guide.
 
-[Metric definitions and limitations](docs/metrics.md) explains what each value means and what it cannot tell you.
+The dashboard lets you compare [Pods](https://kubernetes.io/docs/concepts/workloads/pods/). It shows CPU and memory use, throttling, pressure, restarts, and out-of-memory events alongside Kubernetes [resource requests and limits](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/). It shows what happened without choosing new resource values for you.
+
+See [Metric definitions and limitations](docs/metrics.md) for the meaning and limits of each measurement.
 
 ## Dashboard Filters
 
@@ -16,49 +19,39 @@ The dashboard compares each [Pod](https://kubernetes.io/docs/concepts/workloads/
 - Container.
 - Observation window.
 
-## Dashboard Sections
+## Dashboard Layout
 
-### Workload Context
+All panels are visible without expanding any sections. Graphs come first, followed by tables with exact values.
 
-- Workload kind and name.
-- Current revision and image.
-- Replica count.
-- Revision age.
-- CPU and memory requests.
-- CPU and memory limits.
-- Available observation history.
+![Visual overview with CPU and memory graphs, throttling, pressure, and runtime activity](docs/assets/dashboard-visual-overview.png)
 
-### CPU Evidence
+### Context and evidence quality
 
-- CPU usage over time.
-- p95 and maximum CPU usage.
-- CPU request and limit.
-- Difference between the request and p95 usage.
+- Current Pods and Pod executions.
+- Revisions and nodes.
+- Shortest CPU history and sample coverage.
+- Revision/container groups with mixed immutable images.
+
+### Resource graphs
+
+- CPU usage with request and limit overlays.
+- Total memory with request and limit overlays.
 - CPU throttled-period percentage.
 - CPU throttled time.
-- CPU pressure when PSI metrics exist.
+- CPU and memory pressure when PSI metrics exist.
+- Working set, RSS, and cache as separate, unstacked lines.
+- OOM and restart activity in rolling intervals.
 
-### Memory Evidence
+### Configuration and replica comparison
 
-- Total container memory.
-- Working-set memory.
-- RSS and cache.
-- Maximum values for the selected period.
-- Memory request and limit.
-- Memory pressure when PSI metrics exist.
-- cAdvisor OOM events.
-- Kubernetes `OOMKilled` state.
-- Container restarts.
+- Current revision, image, requests, limits, and history.
+- Per-Pod CPU average, p95, maximum, request differences, throttling, and pressure.
+- Per-Pod memory maxima, OOM events, restarts, and `OOMKilled` state.
+- Pod and node identity remain visible instead of one workload average.
 
-### Replica Comparison
+### Revision review
 
-- Keep each pod and node visible.
-- Compare usage, throttling, pressure, memory, OOM events, and restarts.
-- Do not hide replica differences behind one average.
-
-### Review Table
-
-Show one row for each workload revision and container:
+The review table shows one row for each workload revision and container:
 
 - Current requests and limits.
 - CPU p95 and maximum.
@@ -69,27 +62,7 @@ Show one row for each workload revision and container:
 - OOM, restart, throttling, and pressure signals.
 - Missing evidence warnings.
 
-## Out of Scope
-
-- HPA.
-- Exact request or limit recommendations.
-- Kubernetes manifest changes.
-- Pull requests or automatic application.
-- Application-specific metrics.
-- Java, Node.js, Go, or Python runtime dashboards.
-- Cost calculations.
-- Workflow state, approvals, and exceptions.
-- AI analysis.
-
-## Acceptance Criteria
-
-- The mixin installs on a standard `kube-prometheus-stack` deployment.
-- Grafana loads the dashboard without manual edits.
-- All Prometheus rules pass `promtool`.
-- The dashboard works when PSI metrics are absent.
-- Queries never combine different workload revisions.
-- The dashboard does not label low usage as a safe reduction.
-- The documentation explains each metric and its limitation.
+The runtime activity chart uses rolling intervals of at least four minutes. The tables keep event totals for the whole selected window.
 
 ## Try it locally
 
@@ -121,9 +94,9 @@ make dev
 🧹 Remove everything with: make dev-down
 ```
 
-The command creates a dedicated cluster, installs Prometheus and Grafana, adds the dashboard and rules, starts a sample workload, and prints links to Grafana and Prometheus. Open **Kubernetes Resource Review** in the **Kubernetes** folder.
+The command creates a dedicated cluster and installs Prometheus, Grafana, the dashboard, and the recording rules. It also starts sample workloads and prints links to Grafana and Prometheus. Open **Kubernetes Resource Review** in the **Kubernetes** folder.
 
-Run `make dev` again to update the cluster. This command keeps the existing cluster and reapplies the generated recording rules and dashboard ConfigMap.
+Run `make dev` again to update the development cluster. The command keeps that cluster and reapplies the generated recording rules and dashboard ConfigMap.
 
 Use `make dev-open` to open Grafana in your browser:
 
@@ -132,7 +105,7 @@ make dev-open
 🌐 Opening Grafana in your default browser...
 ```
 
-And remove the cluster with:
+To remove the cluster, run:
 
 ```bash
 make dev-down
@@ -140,13 +113,13 @@ make dev-down
 
 ## Install it in a cluster
 
-`make dev` installs [`kube-prometheus-stack`](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack), including the required Prometheus Operator `PrometheusRule` CRD, in the local cluster. Before installing this project in another cluster, make sure that cluster already has the same CRD. Prometheus must receive Kubernetes object details from [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) and container CPU and memory measurements from [cAdvisor](https://github.com/google/cadvisor). Metrics Server is not required.
+`make dev` installs [`kube-prometheus-stack`](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack), including the required Prometheus Operator `PrometheusRule` CRD. Before you install this project in another cluster, make sure that the cluster has the same CRD. Prometheus needs Kubernetes object details from [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics). It also needs container CPU and memory measurements from [cAdvisor](https://github.com/google/cadvisor). Metrics Server is not required.
 
 The `kube-prometheus-stack` chart drops `container_cpu_cfs_throttled_seconds_total` from its cAdvisor scrape by default. The [included Helm values](kube-prometheus-stack-values.yaml) keep this metric so the **CPU throttled time** graph has data, while leaving the chart's other cAdvisor filters in place. Merge these values into the values used to install or upgrade your monitoring stack.
 
 CPU and memory [Pressure Stall Information (PSI)](https://docs.kernel.org/accounting/psi.html) metrics are optional. When a node or cAdvisor version does not expose them, the dashboard continues to work and shows the pressure evidence as unavailable rather than zero. Check the tested versions and required measurements in [Compatibility and required metrics](docs/compatibility.md).
 
-`make validate` checks which tools are already available. It downloads missing tools to `.tools/bin`; it does not change system directories. Each download uses a fixed version and must match the SHA-256 checksum stored in this repository. Downloads need `curl`, `tar`, and a SHA-256 command (`sha256sum` or `shasum`). The setup also needs [GNU Make](https://www.gnu.org/software/make/manual/make.html). It supports Linux and macOS on amd64 and arm64.
+`make validate` checks which tools are available and downloads missing tools to `.tools/bin`. It does not change system directories. Each download uses a fixed version and must match the SHA-256 checksum in this repository. Downloads need `curl`, `tar`, and a SHA-256 command (`sha256sum` or `shasum`). The setup also needs [GNU Make](https://www.gnu.org/software/make/manual/make.html). It supports Linux and macOS on amd64 and arm64.
 
 Review [config.libsonnet](config.libsonnet), then create and check the files:
 
@@ -173,7 +146,7 @@ make validate
 ✅ Validation passed.
 ```
 
-`make validate` recreates the dashboard, Prometheus rules, and Kubernetes files, then checks their formatting, queries, tests, and Kubernetes fields. After it passes, confirm that the committed files match the current Jsonnet source. `make check-generated` uses the same tools because it creates the files again in a temporary directory before comparing them:
+`make validate` rebuilds the dashboard, Prometheus rules, and Kubernetes files. It then checks their formatting, queries, tests, and Kubernetes fields. After it passes, make sure that the committed files match the current Jsonnet source. `make check-generated` creates the files in a temporary directory and compares them with the committed copies:
 
 ```bash
 make check-generated
@@ -190,7 +163,7 @@ make check-generated
 ✅ Committed generated files match the source
 ```
 
-`make validate` creates a [PrometheusRule](https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.PrometheusRule) and a [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/). Before saving them in the cluster, ask the [Kubernetes API server](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/) to check them:
+`make validate` creates a [PrometheusRule](https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.PrometheusRule) and a [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/). Before you save them in the cluster, use the [Kubernetes API server](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/) to check them:
 
 ```bash
 make cluster-check
@@ -202,14 +175,14 @@ make cluster-check
 ✅ Kubernetes API server check passed.
 ```
 
-The command checks the files without saving them. If both files pass, install the rules first and the dashboard second:
+The command checks the files without saving them. If both pass, install the rules first, then the dashboard:
 
 ```bash
 kubectl apply -f manifests/prometheus-rule.yaml
 kubectl apply -f manifests/dashboard-configmap.yaml
 ```
 
-The rules begin saving measurements after installation, so the dashboard cannot show earlier Pod history.
+The rules start saving measurements after installation. The dashboard cannot show Pod history from before that point.
 
 If `kube-prometheus-stack` loads dashboards from ConfigMaps, use these Grafana settings so the dashboard appears in the **Kubernetes** folder:
 
@@ -223,11 +196,11 @@ grafana:
         foldersFromFilesStructure: true
 ```
 
-Without both folder settings, Grafana may place the dashboard in **General**.
+Without both folder settings, Grafana can place the dashboard in **General** instead.
 
 ## Change the settings
 
-Change [config.libsonnet](config.libsonnet) before running `make validate`. These are the settings most installations need:
+Edit [config.libsonnet](config.libsonnet) before you run `make validate`. Most installations need these settings:
 
 [Kubernetes labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) decide which rule or dashboard file a tool reads, while [Prometheus labels](https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels) decide which measurements a query reads.
 
@@ -243,15 +216,17 @@ Change [config.libsonnet](config.libsonnet) before running `make validate`. Thes
 | `clusterLabel` | `cluster` | The label that names each cluster when the picker is enabled |
 | `singleClusterName` | `current-cluster` | The Cluster value shown when source metrics do not carry a cluster label |
 
-The time picker supports observation windows up to 30 days. Prometheus must retain at least 30 days of samples for the complete window to contain data; `make dev` configures 31 days of retention. The dashboard opens with the seven-day `defaultTimeRange`, and you can select **30d** from the time picker.
+The time picker supports observation windows up to 30 days. Prometheus must keep at least 30 days of samples to fill the complete window. `make dev` sets retention to 31 days. The dashboard opens with the seven-day `defaultTimeRange`, and you can select **30d** in the time picker.
 
-The same file contains the optional warning colors, book link, and links to the standard Kubernetes dashboards. A warning color only draws attention to a measured value; it does not recommend a change.
+The same file includes optional warning colors, the book link, and links to standard Kubernetes dashboards. A warning color highlights a measured value. It does not recommend a change.
 
 ## How measurements stay with the right Pod
 
-Kubernetes can reuse a Pod name after deleting the original Pod. Before the dashboard reads the history, the recording rules keep the namespace, workload, revision, Pod name and [Pod UID](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids), node, container, image, and exact image ID. They also keep the cluster label when the source metrics provide it. In single-cluster mode, the dashboard uses the configured Cluster name when the metrics do not have that label. The revision comes from the ReplicaSet name for [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) updates and other ReplicaSet-owned Pods, from the Job name when a [CronJob](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/) or another controller owns the [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/), and otherwise falls back to the Pod UID. The `revision_source` label records which source was used. These details stop an old measurement from moving to a new Pod with the same name.
+Kubernetes can reuse a Pod name after it removes the original Pod. The recording rules save each sample with its namespace, workload, revision, Pod name, and [Pod UID](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids). They also keep the node, container, image, and exact image ID. When the source metrics include a cluster label, the rules keep it too. In single-cluster mode, the dashboard shows the configured Cluster name if that label is absent.
 
-The rules also keep missing, zero, and unconfigured values separate. A missing value means Prometheus received nothing, zero is a measured value, and unconfigured means the Kubernetes object did not set a request or limit. [How the mixin keeps each sample with the right Pod](docs/architecture.md) explains the queries and how each Pod is connected to the Kubernetes object that created it.
+The revision comes from the ReplicaSet name for [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) updates and other ReplicaSet-owned Pods. It comes from the Job name when a [CronJob](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/) or another controller owns the [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/). Otherwise, it falls back to the Pod UID. The `revision_source` label records which source supplied the revision. These details keep an old measurement with its original Pod.
+
+The rules also keep missing, zero, and unconfigured values separate. A missing value means Prometheus received no data. Zero is a measured value. Unconfigured means the Kubernetes object did not set a request or limit. [How the mixin keeps each sample with the right Pod](docs/architecture.md) explains the queries and how each Pod connects to its Kubernetes owner.
 
 ## Check a change
 
@@ -269,8 +244,4 @@ The first command creates the files and checks their format, queries, and Kubern
 
 ## License
 
-This project uses the [Apache License 2.0](LICENSE). [Third-party licenses](THIRD_PARTY_LICENSES.md) lists the libraries included under `vendor/`.
-
-## Sponsor
-
-Open-source development of this project is sponsored by [StormForge](https://stormforge.io/).
+This project uses the [Apache License 2.0](LICENSE). See [Third-party licenses](THIRD_PARTY_LICENSES.md) for the libraries under `vendor/`.

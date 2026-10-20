@@ -27,7 +27,8 @@ check_range() {
             | {
                 record: ("resource_review_dashboard_query_" + ($index | tostring)),
                 expr: (
-                  $expressions[$index]
+                   $expressions[$index]
+                   | gsub("\\$__rate_interval"; "5m")
                   | gsub("\\$__range_s"; $range_seconds)
                   | gsub("\\$__range"; $range)
                   | gsub("\\$(cluster|namespace|workload_type|workload|revision|pod|container)"; ".*")

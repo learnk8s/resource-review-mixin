@@ -14,6 +14,6 @@
 - [ ] Dashboard changes were smoke-tested in Grafana when possible
 - [ ] Identity, selector, manifest, or observation-window changes passed `make integration-test`
 - [ ] Compatibility matrix was updated when a pinned version or source metric changed
-- [ ] Documentation and changelog were updated
+- [ ] Documentation was updated
 - [ ] Missing evidence is not converted to zero
 - [ ] The change does not make an automatic resource recommendation

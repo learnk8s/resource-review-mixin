@@ -1,6 +1,6 @@
 # Compatibility and required metrics
 
-The table below shows the versions covered by the project tests and gives you a tested starting point.
+This table lists the versions covered by the project tests. These versions give you a tested starting point.
 
 ## Verified baseline
 
@@ -17,7 +17,7 @@ The table below shows the versions covered by the project tests and gives you a 
 
 ## Check the identity metrics
 
-After you choose the stack versions, check the metrics that tell the mixin where each sample came from. They identify the workload, revision, Pod execution, and container, so the mixin can attach the right CPU, memory, and event data to each one.
+After you choose the stack versions, check the metrics that show where each sample comes from. They identify the workload, revision, Pod execution, and container. These details help the mixin attach the right CPU, memory, and event data to each sample.
 
 | Source | Metrics | What the mixin gets from them |
 |---|---|---|
@@ -26,43 +26,43 @@ After you choose the stack versions, check the metrics that tell the mixin where
 
 ## Check the CPU and memory metrics
 
-Once the mixin knows which container a sample belongs to, it uses these cAdvisor metrics to show CPU and memory use.
+After the mixin identifies a sample's container, it uses these cAdvisor metrics to show CPU and memory use.
 
 | Source | Metrics | What the mixin gets from them |
 |---|---|---|
 | cAdvisor | `container_cpu_usage_seconds_total` | Five-minute CPU usage and sample coverage |
 | cAdvisor | `container_memory_usage_bytes`, `container_memory_working_set_bytes` | Total memory and working-set evidence |
 
-The mixin looks for kube-state-metrics with `job="kube-state-metrics"` and for cAdvisor with `job="kubelet", metrics_path="/metrics/cadvisor"`. If your monitoring stack uses different labels, set the matching selectors in `config.libsonnet`.
+The mixin finds kube-state-metrics with `job="kube-state-metrics"` and cAdvisor with `job="kubelet", metrics_path="/metrics/cadvisor"`. If your monitoring stack uses other labels, update the selectors in `config.libsonnet` to match.
 
 ## Use the optional metrics
 
-The following metrics add limits, throttling, pressure, failures, resource settings, and Pod age.
+These metrics add limits, throttling, pressure, failures, resource settings, and Pod age.
 
-- **CPU limits and throttling:** `container_cpu_cfs_periods_total`, `container_cpu_cfs_throttled_periods_total`, and `container_cpu_cfs_throttled_seconds_total`. The `kube-prometheus-stack` chart drops the throttled-seconds metric by default even when kubelet provides it. Use [the included Helm values](../kube-prometheus-stack-values.yaml) to keep it. If kubelet itself does not provide the metric, the graph stays empty and the dashboard emits a warning.
+- **CPU limits and throttling:** `container_cpu_cfs_periods_total`, `container_cpu_cfs_throttled_periods_total`, and `container_cpu_cfs_throttled_seconds_total`. By default, the `kube-prometheus-stack` chart drops the throttled-seconds metric from its scrape, even when kubelet provides it. Use [the included Helm values](../kube-prometheus-stack-values.yaml) to keep it. If kubelet does not provide the metric, the graph stays empty and the dashboard shows a warning.
 - **CPU and memory PSI:** `container_pressure_cpu_waiting_seconds_total` and `container_pressure_memory_waiting_seconds_total`.
 - **Memory detail:** `container_memory_rss` and `container_memory_cache`.
 - **Failure evidence:** `container_oom_events_total`, `kube_pod_container_status_restarts_total`, `kube_pod_container_status_last_terminated_reason`, and `kube_pod_container_status_last_terminated_exitcode`.
 - **Resource configuration:** `kube_pod_container_resource_requests`, `kube_pod_container_resource_limits`, and `kube_pod_status_qos_class`.
 - **Pod age:** `kube_pod_created`.
 
-When Prometheus has one of these metric families, the dashboard shows its values. When the family is absent, the value stays empty, while a measured zero still appears as `0`.
+If Prometheus has one of these metric families, the dashboard shows its values. If the family is missing, the value stays empty. A measured zero still appears as `0`.
 
 ## Understand the 30-day window
 
-As Prometheus collects these samples, retention controls how far back the dashboard can look. You can select a 30-day range in Grafana. CI parses dashboard queries with `$__range=30d`, and the integration test runs a live `[30d]` query against Prometheus with 31 days of retention.
+Retention controls how far back the dashboard can show data. In Grafana, you can choose a 30-day range. CI parses dashboard queries with `$__range=30d`. The integration test runs a live `[30d]` query against Prometheus with 31 days of retention.
 
 ## Check a monitoring-stack upgrade
 
-The same checks matter when you change the monitoring stack. After an upgrade, use these steps to verify the new versions:
+The same checks apply when you change the monitoring stack. After an upgrade, use these steps to verify the new versions:
 
-1. Update the pinned version and digest or checksum together.
+1. Update the pinned version and its digest or checksum together.
 2. Recreate the development cluster with `make dev-down && make dev`.
 3. Run `make validate` and `make check-generated`.
 4. Run `make integration-test` with the proposed versions.
-5. Compare the raw metric labels with this document and `docs/metrics.md`.
+5. Compare the raw metric labels with those in this document and `docs/metrics.md`.
 
-To run the second step with different versions, pass all three values to `make dev` as in the following:
+To use different versions in step 2, pass all three values to `make dev`:
 
 ```sh
 make dev-down && \
@@ -72,4 +72,4 @@ KUBE_PROMETHEUS_STACK_SHA256='<matching-chart-archive-sha256>' \
 make dev
 ```
 
-The image digest must match the kind node image, and the chart checksum must match the chosen `kube-prometheus-stack` version.
+Make sure that the image digest matches the kind node image. Make sure that the chart checksum matches the chosen `kube-prometheus-stack` version.
